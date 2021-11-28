@@ -1,87 +1,92 @@
 import numpy as np
 import cv2
-from kivy.lang import Builder
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.button import MDFlatButton
-from kivymd.uix.dialog import MDDialog
 
-KV = '''
-<MatchingConfiguration>
-    orientation: "vertical"
-    spacing: "12dp"
-    size_hint_y: None
-    height: "120dp"
-    
-    MDBoxLayout:
-        MDLabel:
-            text: "Match Cross check (BF only)"
-        MDSwitch:
-    
-    MDBoxLayout:
-        MDLabel:
-            text: "Detector Type"
-        MDDropdownMenu:
-            id: detector_type 
-            text: "SIFT"
-            items: ["SIFT", "ORB", "BRISK"]
-    
-'''
+# from kivy.lang import Builder
+# from kivymd.uix.boxlayout import MDBoxLayout
+# from kivymd.uix.button import MDFlatButton
+# from kivymd.uix.dialog import MDDialog
 
-Builder.load_string(KV)
+# KV = '''
+# <MatchingConfiguration>
+#     orientation: "vertical"
+#     spacing: "12dp"
+#     size_hint_y: None
+#     height: "120dp"
+#
+#     MDBoxLayout:
+#         MDLabel:
+#             text: "Match Cross check (BF only)"
+#         MDSwitch:
+#
+#     MDBoxLayout:
+#         MDLabel:
+#             text: "Detector Type"
+#         MDDropdownMenu:
+#             id: detector_type
+#             text: "SIFT"
+#             items: ["SIFT", "ORB", "BRISK"]
+#
+# '''
+#
+# Builder.load_string(KV)
+#
+#
+# class MatchingConfiguration(MDBoxLayout):
+#     pass
+#
+#
+# def create_configuration_dialog():
+#     conf = MatchingConfiguration()
+#
+#
+#     dialog = MDDialog(
+#         title="Address:",
+#         type="custom",
+#         content_cls=conf,
+#         buttons=[
+#             MDFlatButton(
+#                 text="CANCEL",
+#             ),
+#             MDFlatButton(
+#                 text="OK",
+#             ),
+#         ],
+#     )
+#     return dialog
 
-
-class MatchingConfiguration(MDBoxLayout):
-    pass
-
-
-def create_configuration_dialog():
-    conf = MatchingConfiguration()
-
-
-    dialog = MDDialog(
-        title="Address:",
-        type="custom",
-        content_cls=conf,
-        buttons=[
-            MDFlatButton(
-                text="CANCEL",
-            ),
-            MDFlatButton(
-                text="OK",
-            ),
-        ],
-    )
-    return dialog
 
 def match_images(
     kp1,
     des1,
     kp2,
     des2,
-    cross_check: bool = True,
-    detector_type: str = "SIFT",
+    bf_matcher_cross_check: bool = True,
+    bf_matcher_norm: str = "NORM_L2",
     lowe: float = 0.7,
     ransack_threshold: float = 7.0,
-    matcher_type: str = "brute_force"
+    matcher_type: str = "brute_force",
+    flann_trees: int = 5,
+    flann_index: int = 1,
+    flann_checks: int = 50,
+    min_matches: int = 10,
 ):
 
     if matcher_type == "brute_force":
-        K = 1 if cross_check else 2
-
-        if detector_type == "SIFT":
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=cross_check)
-        elif detector_type in ["ORB", "BRISK"]:
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=cross_check)
-        elif "ORB" in detector_type:
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=cross_check)
+        K = 1 if bf_matcher_cross_check else 2
+        # TODO refactor me!
+        if bf_matcher_norm == "NORM_L2":
+            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=bf_matcher_cross_check)
+        elif bf_matcher_norm == "NORM_L1":
+            bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=bf_matcher_cross_check)
+        elif bf_matcher_norm == "NORM_HAMMING":
+            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=bf_matcher_cross_check)
         else:
-            raise NotImplementedError(f"detector_type={detector_type}")
+            raise NotImplementedError(f"bf_matcher_norm={bf_matcher_norm}")
     else:
 
         K = 2
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-        search_params = dict(checks=50)
+        index_params = dict(algorithm=flann_index, trees=flann_trees)
+        search_params = dict(checks=flann_checks)
         bf = cv2.FlannBasedMatcher(index_params, search_params)
 
         des1 = des1.astype(np.float32)
@@ -97,7 +102,7 @@ def match_images(
             if m.distance < lowe * n.distance:
                 good.append(m)
 
-    if len(good) < 10:
+    if len(good) < min_matches:
         return None, []
 
     src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)

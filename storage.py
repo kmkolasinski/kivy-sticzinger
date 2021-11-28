@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from PIL import Image
-from kivy.utils import platform
 import cv2
+from kivy.utils import platform
+
 
 def save_image(image, name: str, session: str = None):
     if platform == "android":
@@ -20,7 +20,6 @@ def save_image(image, name: str, session: str = None):
 
     Path(PATH).mkdir(exist_ok=True, parents=True)
 
-
     nomedia_file = PATH / ".nomedia"
     if not nomedia_file.exists():
         nomedia_file.open("w").close()
@@ -28,7 +27,7 @@ def save_image(image, name: str, session: str = None):
     save_path = PATH / f"{name}"
 
     print(f"Saving image {image.shape} to: {save_path}")
-    # Image.fromarray(image).save(str(save_path))
+
     cv2.imwrite(str(save_path), image)
 
     return save_path

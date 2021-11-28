@@ -1,0 +1,115 @@
+<LoggerHistoryScreen>:
+    id: this
+    logs_label: logs_label
+    toolbar_height: 100
+    logger_font_size: 20
+
+    MDBoxLayout:
+        orientation: "vertical"
+        padding: 5
+
+        MDBoxLayout:
+            padding: 5
+            spacing: 5
+            MDRaisedButton:
+                text: "Smaller Font"
+                on_press:
+                    this.logger_font_size = this.logger_font_size * 0.8
+
+            MDRaisedButton:
+                text: "Larger Font"
+                on_press:
+                    this.logger_font_size = this.logger_font_size / 0.8
+
+        ScrollView:
+            font_size: int(this.logger_font_size)
+            do_scroll_x: False
+            do_scroll_y: True
+            size_hint: (1, None)
+            size: (Window.width, Window.height - this.toolbar_height * 2)
+
+            MDLabel:
+                id: logs_label
+                markup: True
+                size_hint: (1, None)
+                font_size: self.parent.font_size
+                size: self.texture_size
+                text_size: self.width, None
+                text: ""
+
+
+<ContentNavigationDrawer@BoxLayout>:
+    ScrollView:
+        MDList:
+            OneLineListItem:
+                text: "Settings"
+                on_release:
+                    app.open_settings()
+
+            OneLineListItem:
+                text: "Logs"
+                on_release:
+                    app.open_logger_history()
+
+            OneLineListItem:
+                text: "Keypoints Viewer"
+                on_release:
+                    app.open_keypoints_viewer()
+
+            OneLineListItem:
+                text: "Camera Viewer"
+                on_release:
+                    app.open_camera_viewer()
+
+            OneLineListItem:
+                text: "Tracker Viewer"
+                on_release:
+                    app.open_tracker_viewer()
+
+
+<MainAppScreen>:
+    nav_drawer: nav_drawer
+    screen_manager: screen_manager
+    logger_history: logger_history
+
+    keypoints_viewer: keypoints_viewer
+    camera_viewer: camera_viewer
+    tracker_viewer: tracker_viewer
+
+    MDToolbar:
+        id: toolbar
+        pos_hint: {"top": 1}
+        elevation: 8
+        title: "Sticzinger"
+        left_action_items: [["menu", app.open_nav_drawer], ["eye", app.open_app_settings]]
+
+    MDNavigationLayout:
+        x: toolbar.height
+
+        ScreenManager:
+            id: screen_manager
+
+            LoggerHistoryScreen:
+                id: logger_history
+                toolbar_height: toolbar.height
+                name: "logger-history-screen"
+
+            KeypointsViewerScreen:
+                id: keypoints_viewer
+                name: "keypoints-viewer"
+
+            CameraViewerScreen:
+                id: camera_viewer
+                name: "camera-viewer"
+
+            TrackerScreen:
+                id: tracker_viewer
+                name: "tracker-viewer"
+
+
+        MDNavigationDrawer:
+            id: nav_drawer
+
+            ContentNavigationDrawer:
+                screen_manager: screen_manager
+                nav_drawer: nav_drawer

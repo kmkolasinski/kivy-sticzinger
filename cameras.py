@@ -3,18 +3,49 @@ from typing import Optional
 import cv2
 import kivy
 import numpy as np
+from kivy.graphics import InstructionGroup, Color, Ellipse
 
 from kivy.graphics.texture import Texture
 from kivy.uix.camera import Camera
 from kivy.uix.image import Image
 
+from kivy.core.camera import Camera as CoreCamera
 
-class BaseCamera:
+
+class BaseCamera(Camera):
+    canvas_points_group: Optional[InstructionGroup] = None
+    core_camera: Optional[CoreCamera] = None
+
     def get_current_frame(self) -> Optional[np.ndarray]:
         pass
 
+    def get_or_create_canvas_points_group(self):
+        if self.canvas_points_group is None:
+            self.canvas_points_group = InstructionGroup()
+        else:
+            self.canvas.remove(self.canvas_points_group)
+            self.canvas_points_group.clear()
+        return self.canvas_points_group
 
-class AndroidCamera(Camera, BaseCamera):
+    def render_points(self, points: np.ndarray):
+
+        group = self.get_or_create_canvas_points_group()
+
+        sx, sy = self.norm_image_size
+        w, h = self.size
+        ox, oy = (w - sx) / 2, (h - sy) / 2
+        for point in points:
+            x, y = point
+            x, y = int(x * sx + ox), int(y * sy + oy)
+            color = Color(223 / 255, 75 / 255, 73 / 255, 0.5)
+            group.add(color)
+            rect = Ellipse(pos=(x, y), size=(24, 24))
+            group.add(rect)
+
+        self.canvas.add(group)
+
+
+class AndroidCamera(BaseCamera):
     # (640, 480) or (1280, 720) or
     camera_resolution = (640, 480)
     counter = 0
@@ -76,31 +107,32 @@ class AndroidCamera(Camera, BaseCamera):
         self.texture.blit_buffer(buf, colorfmt="rgb", bufferfmt="ubyte")
 
 
-class LinuxCamera(Camera, BaseCamera):
+class LinuxCamera(BaseCamera):
     camera_resolution = (-1, -1)
-    counter = 0
-
-    def frame_from_buf(self):
-        if self.texture is None:
-            return
-        image = np.frombuffer(self.texture.pixels, np.uint8).reshape(
-            *self.texture.size[::-1], 4
-        )
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        return image
-
-    def get_current_frame(self) -> Optional[np.ndarray]:
-        return self.frame_from_buf()
-
-
-class MockCamera(Camera, BaseCamera):
-    camera_resolution = (640, 480)
 
     def _on_index(self, *largs):
-        pass
+        self._camera = None
+        if self.index < 0:
+            return
 
-    def get_current_frame(self) -> Optional[np.ndarray]:
-        return self.frame_from_buf()
+        if BaseCamera.core_camera is not None:
+            self._camera = BaseCamera.core_camera
+        else:
+            if self.resolution[0] < 0 or self.resolution[1] < 0:
+                self._camera = CoreCamera(index=self.index, stopped=True)
+            else:
+                self._camera = CoreCamera(
+                    index=self.index, resolution=self.resolution, stopped=True
+                )
+            BaseCamera.core_camera = self._camera
+
+        self._camera.bind(on_load=self._camera_loaded)
+        if self.play:
+            self._camera.start()
+            self._camera.bind(on_texture=self.on_tex)
+
+    def on_tex(self, *l):
+        super(LinuxCamera, self).on_tex(*l)
 
     def frame_from_buf(self):
         if self.texture is None:
@@ -109,43 +141,59 @@ class MockCamera(Camera, BaseCamera):
             *self.texture.size[::-1], 4
         )
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = np.flip(image, 0)
         return image
 
-    def sample_camera(self):
-        image = cv2.imread("assets/images/image-1.jpg")
-        w, h = self.camera_resolution
-        random_crop = get_random_crop(image, h * 3, w * 3)
-        self.random_crop = random_crop
-
-    def _camera_loaded(self, *largs):
-        self.texture = Texture.create(
-            size=self.camera_resolution, colorfmt="rgb"
-        )
-        self.texture_size = list(self.texture.size)
-        self.sample_camera()
-
-    def on_tex(self, *l):
-        self.frame_to_screen()
-        super(MockCamera, self).on_tex(*l)
-
-    def frame_to_screen(self):
-
-        w, h = self.camera_resolution
-        image = cv2.resize(self.random_crop, (w, h))
-
-        frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        flipped = np.flip(frame_rgb, 0)
-        buf = flipped.tostring()
-        self.texture.blit_buffer(buf, colorfmt="rgb", bufferfmt="ubyte")
+    def get_current_frame(self) -> Optional[np.ndarray]:
+        return self.frame_from_buf()
 
 
-class CameraWidget(Camera, BaseCamera):
-    index = 0
-    allow_stretch = True
-    play = True
+# class MockCamera(Camera, BaseCamera):
+#     camera_resolution = (640, 480)
+#
+#     def _on_index(self, *largs):
+#         pass
+#
+#     def get_current_frame(self) -> Optional[np.ndarray]:
+#         return self.frame_from_buf()
+#
+#     def frame_from_buf(self):
+#         if self.texture is None:
+#             return
+#         image = np.frombuffer(self.texture.pixels, np.uint8).reshape(
+#             *self.texture.size[::-1], 4
+#         )
+#         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#         image = np.flip(image, 0)
+#         return image
+#
+#     def sample_camera(self):
+#         image = cv2.imread("assets/images/image-1.jpg")
+#         w, h = self.camera_resolution
+#         random_crop = get_random_crop(image, h * 3, w * 3)
+#         self.random_crop = random_crop
+#
+#     def _camera_loaded(self, *largs):
+#         self.texture = Texture.create(size=self.camera_resolution, colorfmt="rgb")
+#         self.texture_size = list(self.texture.size)
+#         self.sample_camera()
+#
+#     def on_tex(self, *l):
+#         self.frame_to_screen()
+#         super(MockCamera, self).on_tex(*l)
+#
+#     def frame_to_screen(self):
+#
+#         w, h = self.camera_resolution
+#         image = cv2.resize(self.random_crop, (w, h))
+#
+#         frame_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#
+#         flipped = np.flip(frame_rgb, 0)
+#         buf = flipped.tostring()
+#         self.texture.blit_buffer(buf, colorfmt="rgb", bufferfmt="ubyte")
 
+
+class CameraWidget(BaseCamera):
     def __new__(cls, *args, **kwargs) -> BaseCamera:
         if kivy.platform != "linux":
             return AndroidCamera(
@@ -174,6 +222,6 @@ def get_random_crop(image, crop_height, crop_width):
     x = np.random.randint(0, max_x)
     y = np.random.randint(0, max_y)
 
-    crop = image[y: y + crop_height, x: x + crop_width]
+    crop = image[y : y + crop_height, x : x + crop_width]
 
     return crop
