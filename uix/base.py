@@ -23,7 +23,7 @@ class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check
     regularly for the stopped() condition."""
 
-    def __init__(self,  *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(StoppableThread, self).__init__(*args, **kwargs)
         self._stop_event = threading.Event()
 
@@ -35,7 +35,6 @@ class StoppableThread(threading.Thread):
 
 
 class ProcessingScreenBase(Screen):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.processing_thread: Optional[StoppableThread] = None
@@ -79,8 +78,6 @@ class ProcessingScreenBase(Screen):
         pass
 
 
-
-
 class ProcessingCameraScreen(ProcessingScreenBase):
     camera_widget: CameraWidget = ObjectProperty()
 
@@ -91,6 +88,15 @@ class ProcessingCameraScreen(ProcessingScreenBase):
     @mainthread
     def update_current_frame(self):
         self.current_frame = self.camera_widget.get_current_frame()
+
+    def is_playing(self) -> bool:
+        return self.camera_widget.play
+
+    def play(self):
+        self.camera_widget.play = True
+
+    def pause(self):
+        self.camera_widget.play = False
 
     @property
     def processing_image_size(self) -> Tuple[int, int]:
@@ -104,9 +110,11 @@ class ProcessingCameraScreen(ProcessingScreenBase):
 
     def on_enter(self, *args):
         super(ProcessingCameraScreen, self).on_enter(*args)
-        self.camera_widget.play = True
+        self.play()
 
-    def to_normed_coords(self, points: np.ndarray, dsize: Tuple[int, int] = None) -> np.ndarray:
+    def to_normed_coords(
+        self, points: np.ndarray, dsize: Tuple[int, int] = None
+    ) -> np.ndarray:
         if dsize is None:
             dsize = self.processing_image_size
         normalized_points = points / np.array([dsize])

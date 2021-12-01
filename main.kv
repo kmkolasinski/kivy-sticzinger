@@ -66,6 +66,11 @@
                 on_release:
                     app.open_tracker_viewer()
 
+            OneLineListItem:
+                text: "Basic Stitcher Viewer"
+                on_release:
+                    app.open_basic_stitcher_viewer()
+
 
 <MainAppScreen>:
     nav_drawer: nav_drawer
@@ -75,6 +80,7 @@
     keypoints_viewer: keypoints_viewer
     camera_viewer: camera_viewer
     tracker_viewer: tracker_viewer
+    basic_stitcher_viewer: basic_stitcher_viewer
 
     MDToolbar:
         id: toolbar
@@ -105,6 +111,10 @@
             TrackerScreen:
                 id: tracker_viewer
                 name: "tracker-viewer"
+
+            BasicStitcherScreen:
+                id: basic_stitcher_viewer
+                name: "basic-stitcher-viewer"
 
 
         MDNavigationDrawer:

@@ -36,7 +36,7 @@ class measuretime:
 
     def __exit__(self, *args, **kwargs):
         self.t = time.perf_counter() - self.t
-        if self.log:
+        if self.log and self.t > 1e-3:
             Logger.info(f"{self.name}: took {self.t:5.3f} [s] {self.params}")
 
 

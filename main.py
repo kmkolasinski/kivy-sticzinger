@@ -10,6 +10,7 @@ from kivymd.app import MDApp
 from kivymd.uix.navigationdrawer import MDNavigationDrawer
 
 import settings as settings_ops
+from uix.basic_stitcher import BasicStitcherScreen
 from uix.camera_viewer_screen import CameraViewerScreen
 from uix.keypoints_viewer_screen import KeypointsViewerScreen
 from uix.tracker_screen import TrackerScreen
@@ -39,6 +40,7 @@ class MainAppScreen(Screen):
     keypoints_viewer: KeypointsViewerScreen = ObjectProperty()
     camera_viewer: CameraViewerScreen = ObjectProperty()
     tracker_viewer: TrackerScreen = ObjectProperty()
+    basic_stitcher_viewer: BasicStitcherScreen = ObjectProperty()
 
 
 if kivy.platform == "linux":
@@ -75,7 +77,7 @@ class SticzingerApp(MDApp):
         self.main_screen.nav_drawer.bind(
             state=self.nav_drawer_state_change
         )
-        self.main_screen.screen_manager.current = "tracker-viewer"
+        self.main_screen.screen_manager.current = "basic-stitcher-viewer"
         return self.main_screen
 
     def on_stop(self):
@@ -113,6 +115,9 @@ class SticzingerApp(MDApp):
 
     def open_tracker_viewer(self):
         self.open_screen(self.main_screen.tracker_viewer.name)
+
+    def open_basic_stitcher_viewer(self):
+        self.open_screen(self.main_screen.basic_stitcher_viewer.name)
 
     def open_app_settings(self, *args):
         self.open_settings()

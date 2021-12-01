@@ -8,14 +8,20 @@ class CVWrapper:
     def __init__(self, fe):
         self.fe = fe
 
-    def extract(self, image):
+    def extract(self, image, mask: Optional[np.ndarray] = None):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        return self.fe.detectAndCompute(gray, mask=None)
+        return self.fe.detectAndCompute(gray, mask=mask)
 
 
-def extract_keypoints(image, dsize: Tuple[int, int], extractor: CVWrapper):
-    image = cv2.resize(image, dsize=dsize)
-    keypoints, des = extractor.extract(image)
+def extract_keypoints(
+    image,
+    dsize: Optional[Tuple[int, int]],
+    extractor: CVWrapper,
+    mask: Optional[np.ndarray] = None,
+):
+    if dsize is not None:
+        image = cv2.resize(image, dsize=dsize)
+    keypoints, des = extractor.extract(image, mask)
     return keypoints, des
 
 

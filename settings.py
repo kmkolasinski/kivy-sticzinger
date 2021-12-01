@@ -1,5 +1,5 @@
 import json
-from typing import Any, Union, List, Tuple
+from typing import Any, Union, List, Tuple, Dict
 
 import cv2
 from kivy.config import ConfigParser
@@ -160,9 +160,41 @@ class KeypointsExtractorConf(PropertiesGroup):
         return size, size
 
 
+class ImageMatchingConf(PropertiesGroup):
+    name = TitleProperty("Image Matching Settings")
+    cross_check = BoolProperty(
+        "1", "MF Matcher Cross Check option", "Applicable only to BFMatcher"
+    )
+    matcher_type = OptionsProperty(
+        "brute_force",
+        "Matcher Type",
+        "OpenCV matcher type",
+        options=["brute_force", "flann"],
+    )
+    min_matches = OptionsProperty(
+        40,
+        "Keypoint Detector Min Matches",
+        "minimum matches to accept photo",
+        options=["20", "30", "40", "50"],
+    )
+    lowe_ratio = OptionsProperty(
+        0.7,
+        "Lowe's parameter",
+        "Applicable only when Matcher is Flann or cross_check is set to False",
+        options=["0.5", "0.6", "0.7", "0.8", "0.9"],
+    )
+    ransack_threshold = OptionsProperty(
+        7,
+        "RANSACK threshold",
+        "Reprojection error threshold",
+        options=["5", "7", "10", "14"],
+    )
+
+
 class AppSettings(PropertiesGroup):
     stitching_conf = StitchingConf()
     keypoints_extractor_conf = KeypointsExtractorConf()
+    matching_conf = ImageMatchingConf()
 
     def get_kivy_settings(self):
         settings = []
@@ -189,6 +221,26 @@ class AppSettings(PropertiesGroup):
         settings.add_json_panel(
             "Configuration", config, data=json.dumps(self.get_kivy_settings())
         )
+
+    @property
+    def matching_configuration(self) -> Dict[str, Any]:
+
+        cross_check = self.matching_conf.cross_check.value
+        detector_type = self.keypoints_extractor_conf.keypoint_detector.value.upper()
+
+        if "SIFT" in detector_type or "KAZE" in detector_type:
+            bf_matcher_norm = "NORM_L2"
+        else:
+            bf_matcher_norm = "NORM_HAMMING"
+
+        conf = {
+            "bf_matcher_cross_check": cross_check,
+            "bf_matcher_norm": bf_matcher_norm,
+            "lowe": self.matching_conf.lowe_ratio.value,
+            "ransack_threshold": self.matching_conf.ransack_threshold.value,
+            "matcher_type": self.matching_conf.matcher_type.value,
+        }
+        return conf
 
     # def get_keypoint_detector(self):
     #     value = self.keypoints_extractor_conf.keypoint_detector

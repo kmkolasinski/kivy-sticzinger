@@ -28,7 +28,9 @@ class BaseCamera(Camera):
         return self.canvas_points_group
 
     def render_points(self, points: np.ndarray):
-
+        """
+        points: [N, 2] image normalized (x, y)
+        """
         group = self.get_or_create_canvas_points_group()
 
         sx, sy = self.norm_image_size
@@ -55,7 +57,6 @@ class BaseCamera(Camera):
             x, y = int(x * sx + ox), int(y * sy + oy)
             new_points.append((x, y))
         return new_points
-
 
 
 class AndroidCamera(BaseCamera):

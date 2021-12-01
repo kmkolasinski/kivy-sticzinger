@@ -8,7 +8,6 @@ from kivy.properties import ListProperty, ObjectProperty
 from logging_ops import profile
 from uix.base import ProcessingCameraScreen, RectShape
 
-from sticzinger_ops import fib
 
 Builder.load_string("""
 # kv_start
@@ -39,8 +38,8 @@ Builder.load_string("""
           
     MDSlider:
         id: tracker_radius_slider
-        min: 1
-        max: 100
+        min: 10
+        max: 80
         value: 20
         top: -100          
             
@@ -95,8 +94,6 @@ class TrackerScreen(ProcessingCameraScreen):
 
         dsize = self.processing_image_size
         self.draw_center_rect(dsize)
-
-        fib(2)
 
         if self.tracker is not None:
             image = self.get_resized_frame(dsize)
