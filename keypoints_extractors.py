@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -13,7 +13,7 @@ class CVWrapper:
         return self.fe.detectAndCompute(gray, mask=None)
 
 
-def extract_keypoints(image, dsize: tuple[int, int], extractor: CVWrapper):
+def extract_keypoints(image, dsize: Tuple[int, int], extractor: CVWrapper):
     image = cv2.resize(image, dsize=dsize)
     keypoints, des = extractor.extract(image)
     return keypoints, des
@@ -49,7 +49,7 @@ def create_keypoint_extractor(name: str) -> CVWrapper:
 
 
 def detect_screen_keypoints(
-    image: Optional[np.ndarray], dsize: tuple[int, int], extractor: CVWrapper
+    image: Optional[np.ndarray], dsize: Tuple[int, int], extractor: CVWrapper
 ) -> np.ndarray:
 
     if image is None:

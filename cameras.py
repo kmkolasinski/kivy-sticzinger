@@ -44,6 +44,19 @@ class BaseCamera(Camera):
 
         self.canvas.add(group)
 
+    def to_canvas_coords(self, points: np.ndarray):
+        new_points = []
+        sx, sy = self.norm_image_size
+        w, h = self.size
+        ox, oy = (w - sx) / 2, (h - sy) / 2
+        for point in points:
+            x, y = point
+            y = 1 - y
+            x, y = int(x * sx + ox), int(y * sy + oy)
+            new_points.append((x, y))
+        return new_points
+
+
 
 class AndroidCamera(BaseCamera):
     # (640, 480) or (1280, 720) or

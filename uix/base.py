@@ -1,7 +1,8 @@
 import time
 from abc import abstractmethod, ABC
-from typing import Optional
+from typing import Optional, Tuple
 
+import cv2
 import numpy as np
 from kivy.app import App
 from kivy.clock import mainthread
@@ -13,6 +14,9 @@ from logging_ops import elapsedtime
 from settings import AppSettings
 
 import threading
+
+
+RectShape = Tuple[int, int, int, int]
 
 
 class StoppableThread(threading.Thread):
@@ -75,6 +79,8 @@ class ProcessingScreenBase(Screen):
         pass
 
 
+
+
 class ProcessingCameraScreen(ProcessingScreenBase):
     camera_widget: CameraWidget = ObjectProperty()
 
@@ -86,6 +92,32 @@ class ProcessingCameraScreen(ProcessingScreenBase):
     def update_current_frame(self):
         self.current_frame = self.camera_widget.get_current_frame()
 
+    @property
+    def processing_image_size(self) -> Tuple[int, int]:
+        conf = self.conf.keypoints_extractor_conf
+        dsize = conf.get_image_size()
+        return dsize
+
+    def get_resized_frame(self, dsize: Tuple[int, int]) -> np.ndarray:
+        image = cv2.resize(self.current_frame, dsize)
+        return image
+
     def on_enter(self, *args):
         super(ProcessingCameraScreen, self).on_enter(*args)
         self.camera_widget.play = True
+
+    def to_normed_coords(self, points: np.ndarray, dsize: Tuple[int, int] = None) -> np.ndarray:
+        if dsize is None:
+            dsize = self.processing_image_size
+        normalized_points = points / np.array([dsize])
+        return normalized_points
+
+    def bbox_to_canvas_rect(self, bbox: RectShape, dsize: Tuple[int, int]) -> RectShape:
+        x, y, w, h = bbox
+        points = np.array([[x, y], [x + w, y + h]])
+        # image -> normalized coords
+        points = self.to_normed_coords(points, dsize)
+        # normed -> camera canvas coords
+        (x1, y1), (x2, y2) = self.camera_widget.to_canvas_coords(points)
+        rect = (x1, y1, x2 - x1, y2 - y1)
+        return rect

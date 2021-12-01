@@ -1,5 +1,5 @@
 import json
-from typing import Any, Union
+from typing import Any, Union, List, Tuple
 
 import cv2
 from kivy.config import ConfigParser
@@ -79,7 +79,7 @@ class BoolProperty(Property):
 @dataclass
 class OptionsProperty(Property):
 
-    options: list[str]
+    options: List[str]
 
     @property
     def type(self) -> str:
@@ -104,7 +104,7 @@ class PropertiesGroup:
     def is_property(self, item: str):
         return isinstance(getattr(type(self), item), BaseProperty)
 
-    def properties(self) -> list[tuple[str, str, BaseProperty]]:
+    def properties(self) -> List[Tuple[str, str, BaseProperty]]:
         properties = []
         for item in self.__dir__():
             obj = getattr(type(self), item)
@@ -124,7 +124,7 @@ class StitchingConf(PropertiesGroup):
         0.2,
         "Processing thread max wait time",
         "",
-        options=["0.1", "0.2", "0.3", "0.4", "0.5"],
+        options=["0.05", "0.1", "0.2", "0.3", "0.4", "0.5"],
     )
 
 
@@ -155,7 +155,7 @@ class KeypointsExtractorConf(PropertiesGroup):
         options=["300", "350", "400", "500", "600"],
     )
 
-    def get_image_size(self) -> tuple[int, int]:
+    def get_image_size(self) -> Tuple[int, int]:
         size = self.image_size.value
         return size, size
 

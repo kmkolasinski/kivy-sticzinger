@@ -22,10 +22,10 @@ source.include_patterns = assets/*
 #source.exclude_exts = spec
 
 # (list) List of directory to exclude (let empty to not exclude anything)
-source.exclude_dirs = tests, bin, data
+source.exclude_dirs = tests, bin, data, notebooks, deprecated
 
 # (list) List of exclusions using pattern matching
-#source.exclude_patterns = license,images/*/*.jpg
+# source.exclude_patterns = license,images/*/*.jpg,notebooks/,deprecated/,build
 
 # (str) Application versioning (method 1)
 version = 0.1
@@ -36,11 +36,12 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy==2.0.0,opencv==4.5.2,numpy,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow
+requirements = python3,sticzinger_ops,kivy==2.0.0,opencv==4.5.2,numpy,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
+requirements.source.sticzinger_ops = ./libs/sticzinger_ops
 
 # (list) Garden requirements
 #garden_requirements =
@@ -239,7 +240,7 @@ android.arch = armeabi-v7a
 #p4a.source_dir =
 
 # (str) The directory in which python-for-android should look for your own build recipes (if any)
-#p4a.local_recipes =
+p4a.local_recipes = libs/recipes
 
 # (str) Filename to the hook for p4a
 #p4a.hook =

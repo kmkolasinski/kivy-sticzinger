@@ -75,7 +75,7 @@ class SticzingerApp(MDApp):
         self.main_screen.nav_drawer.bind(
             state=self.nav_drawer_state_change
         )
-        self.main_screen.screen_manager.current = "keypoints-viewer"
+        self.main_screen.screen_manager.current = "tracker-viewer"
         return self.main_screen
 
     def on_stop(self):
