@@ -18,7 +18,8 @@ Builder.load_string(
     camera_widget: camera_widget
     take_photo_button: take_photo_button
     speed_dial_button: speed_dial_button
-
+    num_matches_label: num_matches_label
+    
     canvas.after:
         Color:
             rgba: 223/255, 75/255, 73/255, self.line_color_alpha
@@ -31,6 +32,19 @@ Builder.load_string(
         allow_stretch: True
         pos: self.parent.pos
         size: self.parent.size
+        # canvas.before:
+        #     PushMatrix
+        #     Rotate:
+        #         angle:-90
+        #         origin:self.center
+        # canvas.after:
+        #     PopMatrix
+            
+    MDLabel:
+        id: num_matches_label
+        text: ""
+        pos_hint: {"center_x": 0.5, "center_y": 0.2}
+        color: 1, 1, 1, 1
             
     MDFloatingActionButton:
         id: take_photo_button
@@ -65,10 +79,11 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
     line_points = ListProperty([(0, 0), (0, 0)])
     line_color_alpha = NumericProperty(0.0)
 
+
     def update_line_guide(self, points: Optional[np.ndarray]):
         if points is not None:
             points = self.camera_widget.to_canvas_coords(points)
-            anim = Animation(line_points=points, line_color_alpha=1.0, duration=0.1)
+            anim = Animation(line_points=points, line_color_alpha=1.0, duration=0.25)
             anim.start(self)
         else:
             anim = Animation(line_color_alpha=0.0, duration=0.1)

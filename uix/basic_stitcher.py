@@ -3,36 +3,42 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.lang import Builder
-from kivy.properties import ObjectProperty, ListProperty, NumericProperty
+from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import ScreenManager
 from kivymd.uix.button import MDFloatingActionButton, MDFloatingBottomButton, MDFloatingActionButtonSpeedDial
+from kivymd.uix.label import MDLabel
 
 import keypoints_extractors as ke_ops
 import matching
 import storage
 import transform
-from cameras import CameraWidget
 from logging_ops import profile, measuretime
 from uix.base import ProcessingCameraScreen
 from uix.preview_image import PreviewPanoramaScreen
 
 Builder.load_string(
-    """
+"""
 # kv_start
 <BasicStitcherScreen>:
     camera_widget: camera_widget
     take_photo_button: take_photo_button
     speed_dial_button: speed_dial_button
+    num_matches_label: num_matches_label
 
     CameraWidget:
         id: camera_widget
         allow_stretch: True
         pos: self.parent.pos
         size: self.parent.size
-            
+    
+    MDLabel:
+        id: num_matches_label
+        text: ""
+        pos_hint: {"center_x": 0.5, "center_y": 0.2}
+        color: 1, 1, 1, 1
+    
     MDFloatingActionButton:
         id: take_photo_button
         text: "Capture"
@@ -66,6 +72,7 @@ STITCHING_INITIALIZED = "STITCHING_INITIALIZED"
 class BasicStitcherScreen(ProcessingCameraScreen):
     take_photo_button: MDFloatingActionButton = ObjectProperty()
     speed_dial_button: MDFloatingActionButtonSpeedDial = ObjectProperty()
+    num_matches_label: MDLabel = ObjectProperty()
 
     speed_dial_actions = {
         "Preview": "eye",
@@ -111,10 +118,9 @@ class BasicStitcherScreen(ProcessingCameraScreen):
 
         Clock.schedule_once(_save)
 
-    def save_data_image(self, key: str):
+    def save_current_frame(self, image: np.ndarray):
         name = f"{self.photo_index}".zfill(3) + ".jpg"
-        self.save_image(self.data[key][2], name)
-        self.photo_index += 1
+        self.save_image(image, name)
 
     def preview_pano_proposal(self):
         self.pause()
@@ -139,7 +145,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
     @profile
     def accept_current_panorama(self):
         self.data["photo"] = self.data["pano_proposal"]
-        self.save_data_image("current")
+        self.photo_index += 1
         self.save_image(self.data["photo"][2], "stitched.jpg")
 
     def cancel_preview_screen(self, manager: ScreenManager):
@@ -166,11 +172,12 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.is_taking_photo = True
 
         image = self.current_frame
+        self.save_current_frame(image)
 
         if self.stitching_state is None:
             self.set_stitching_state(STITCHING_INITIALIZED)
             self.extract_keypoints("photo", image)
-            self.save_data_image("photo")
+            self.photo_index += 1
         elif self.stitching_state == STITCHING_INITIALIZED:
             status = self.stitch()
             if status:
@@ -307,6 +314,9 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         H, matches = matching.match_images(
             kp1, des1, kp2, des2, **self.conf.matching_configuration
         )
+
+        min_matches = self.conf.matching_conf.min_matches.value
+        self.num_matches_label.text = f"{len(matches)} / {min_matches}"
 
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()

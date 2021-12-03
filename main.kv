@@ -54,38 +54,39 @@
     ScrollView:
         DrawerList:
             id: md_list
-            ItemDrawer:
-                icon: "cog"
-                text: "Settings"
-                on_release:
-                    app.open_settings()
 
             ItemDrawer:
+                icon: "information-outline"
                 text: "Logs"
                 on_release:
                     app.open_logger_history(self)
-#
+
             ItemDrawer:
+                icon: "scatter-plot"
                 text: "Keypoints Viewer"
                 on_release:
                     app.open_keypoints_viewer(self)
 
             ItemDrawer:
-                text: "Camera Viewer"
+                icon: "camera"
+                text: "Just Camera View"
                 on_release:
                     app.open_camera_viewer(self)
 
             ItemDrawer:
+                icon: "target"
                 text: "Tracker Viewer"
                 on_release:
                     app.open_tracker_viewer(self)
 
             ItemDrawer:
+                icon: "arrow-expand-all"
                 text: "Basic Stitcher"
                 on_release:
                     app.open_basic_stitcher_viewer(self)
 
             ItemDrawer:
+                icon: "arrow-expand-right"
                 text: "Left Right Stitcher"
                 on_release:
                     app.open_left_to_right_stitcher_viewer(self)

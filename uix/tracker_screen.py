@@ -74,7 +74,7 @@ class TrackerScreen(ProcessingCameraScreen):
     def draw_center_rect(self, dsize):
         bbox = self.create_center_bbox(dsize)
         rect = self.bbox_to_canvas_rect(bbox, dsize)
-        anim = Animation(center_rect=rect, duration=0.1)
+        anim = Animation(center_rect=rect, duration=0.01)
         anim.start(self)
 
     def start_tracking(self):
@@ -99,7 +99,7 @@ class TrackerScreen(ProcessingCameraScreen):
             image = self.get_resized_frame(dsize)
             status, bbox = self.tracker.update(image)
             rect = self.bbox_to_canvas_rect(bbox, dsize)
-            anim = Animation(tracking_rect=rect, duration=0.1)
+            anim = Animation(tracking_rect=rect, duration=0.01)
             anim.start(self)
 
 

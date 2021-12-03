@@ -1,6 +1,5 @@
 import kivy
 from kivy import Logger
-from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.logger import LoggerHistory
 from kivy.properties import ObjectProperty, ConfigParser, StringProperty, ListProperty
@@ -9,7 +8,7 @@ from kivy.uix.settings import Settings, SettingsWithTabbedPanel
 from kivy.utils import escape_markup
 from kivymd.app import MDApp
 from kivymd.theming import ThemableBehavior
-from kivymd.uix.list import OneLineListItem, OneLineIconListItem, MDList
+from kivymd.uix.list import OneLineIconListItem, MDList
 from kivymd.uix.navigationdrawer import MDNavigationDrawer
 
 import settings as settings_ops
@@ -100,12 +99,7 @@ class SticzingerApp(MDApp):
             state=self.nav_drawer_state_change
         )
         self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
-        # Clock.schedule_once(self.startup)
         return self.main_screen
-
-    # def startup(self, *args):
-    #     item = self.main_screen.nav_drawer.children[0].ids.md_list.children[0]
-    #     self.open_left_to_right_stitcher_viewer(item)
 
     def on_stop(self):
         Logger.info("Exiting!")
@@ -164,6 +158,9 @@ class SticzingerApp(MDApp):
 
     def on_config_change(self, config, section, key, value):
         Logger.info(f"Config changed: {section} {key} {value}")
+        if key in ("keypoint_detector", "image_size"):
+            self.main_screen.basic_stitcher_viewer.reset_state()
+            self.main_screen.left_to_right_stitcher_viewer.reset_state()
 
 
 if __name__ == "__main__":

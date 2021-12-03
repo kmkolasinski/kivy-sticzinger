@@ -3,11 +3,15 @@ from typing import Optional
 import cv2
 import kivy
 import numpy as np
+from kivy import Logger
 from kivy.core.camera import Camera as CoreCamera
+
 from kivy.graphics import InstructionGroup, Color, Ellipse
 from kivy.graphics.texture import Texture
 from kivy.uix.camera import Camera
 from kivy.uix.image import Image
+
+from logging_ops import profile
 
 
 class BaseCamera(Camera):
@@ -54,72 +58,6 @@ class BaseCamera(Camera):
             new_points.append((x, y))
         return new_points
 
-
-class AndroidCamera(BaseCamera):
-    # (640, 480) or (1280, 720) or
-    camera_resolution = (640, 480)
-    counter = 0
-
-    # def _on_index(self, *largs):
-    #     from kivy.core.camera.camera_android import CameraAndroid
-    #     self._camera = None
-    #     if self.index < 0:
-    #         return
-    #     if self.resolution[0] < 0 or self.resolution[1] < 0:
-    #         self._camera = CameraAndroid(index=self.index, stopped=True)
-    #     else:
-    #         self._camera = CameraAndroid(index=self.index,
-    #                               resolution=self.resolution, stopped=True)
-    #     self._camera.bind(on_load=self._camera_loaded)
-    #     if self.play:
-    #         self._camera.start()
-    #         self._camera.bind(on_texture=self.on_tex)
-
-    def _camera_loaded(self, *largs):
-        print(f"Camera loaded, resolution [{self.camera_resolution}] !")
-        self.texture = Texture.create(
-            size=np.flip(self.camera_resolution), colorfmt="rgb"
-        )
-        self.texture_size = list(self.texture.size)
-        self.frame: Optional[np.ndarray] = None
-
-    def get_current_frame(self) -> Optional[np.ndarray]:
-        if hasattr(self, "frame"):
-            return self.frame
-        return None
-
-    def on_tex(self, *l):
-        if self._camera._buffer is None:
-            return None
-
-        self.frame = self.frame_from_buf()
-        self.frame_to_screen(self.frame)
-
-        super(AndroidCamera, self).on_tex(*l)
-
-    def frame_from_buf(self):
-        buffer = self._camera._buffer
-        if buffer is None:
-            return None
-
-        w, h = self.resolution
-        frame = np.frombuffer(self._camera._buffer.tostring(), "uint8").reshape(
-            (h + h // 2, w)
-        )
-        frame_bgr = cv2.cvtColor(frame, 93)
-        return np.rot90(frame_bgr, 3)
-
-    def frame_to_screen(self, frame):
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        flipped = np.flip(frame_rgb, 0)
-        buf = flipped.tostring()
-        self.texture.blit_buffer(buf, colorfmt="rgb", bufferfmt="ubyte")
-
-
-class LinuxCamera(BaseCamera):
-    camera_resolution = (-1, -1)
-
     def _on_index(self, *largs):
         self._camera = None
         if self.index < 0:
@@ -137,9 +75,190 @@ class LinuxCamera(BaseCamera):
             BaseCamera.core_camera = self._camera
 
         self._camera.bind(on_load=self._camera_loaded)
-        if self.play:
+
+    def on_play(self, instance, value):
+        Logger.info(f"Starting camera={instance} value={value}")
+        if not self._camera:
+            return
+        if value:
             self._camera.start()
             self._camera.bind(on_texture=self.on_tex)
+        else:
+            self._camera.stop()
+
+
+if kivy.platform != "linux":
+    from kivy.core.camera.camera_android import CameraAndroid
+
+    class MyCameraAndroid(CameraAndroid):
+        def init_camera(self):
+
+            from jnius import autoclass
+            from kivy.graphics.texture import Texture
+            from kivy.graphics import Fbo, Callback, Rectangle
+
+            Camera = autoclass("android.hardware.Camera")
+            SurfaceTexture = autoclass("android.graphics.SurfaceTexture")
+            GL_TEXTURE_EXTERNAL_OES = autoclass(
+                "android.opengl.GLES11Ext"
+            ).GL_TEXTURE_EXTERNAL_OES
+            ImageFormat = autoclass("android.graphics.ImageFormat")
+
+            self._release_camera()
+            self._android_camera = Camera.open(self._index)
+            params = self._android_camera.getParameters()
+
+            # width, height = self._resolution
+            width, height = self._resolution
+
+            params.setPreviewSize(height, width)
+            params.setFocusMode("continuous-picture")
+
+            self._android_camera.setParameters(params)
+            # self._android_camera.setDisplayOrientation()
+            self.fps = 30.0
+
+            pf = params.getPreviewFormat()
+            assert pf == ImageFormat.NV21  # default format is NV21
+            self._bufsize = int(ImageFormat.getBitsPerPixel(pf) / 8.0 * width * height)
+
+            self._camera_texture = Texture(
+                width=width,
+                height=height,
+                target=GL_TEXTURE_EXTERNAL_OES,
+                colorfmt="rgba",
+            )
+            self._surface_texture = SurfaceTexture(int(self._camera_texture.id))
+            self._android_camera.setPreviewTexture(self._surface_texture)
+
+            self._fbo = Fbo(size=self._resolution)
+            self._fbo["resolution"] = (float(width), float(height))
+            self._fbo.shader.fs = """
+                #extension GL_OES_EGL_image_external : require
+                #ifdef GL_ES
+                    precision highp float;
+                #endif
+    
+                /* Outputs from the vertex shader */
+                varying vec4 frag_color;
+                varying vec2 tex_coord0;
+    
+                /* uniform texture samplers */
+                uniform sampler2D texture0;
+                uniform samplerExternalOES texture1;
+                uniform vec2 resolution;
+    
+                void main()
+                {
+                    vec2 coord = vec2(tex_coord0.y, 1.0 - tex_coord0.x);
+                    gl_FragColor = texture2D(texture1, coord);
+                }
+            """
+            with self._fbo:
+                self._texture_cb = Callback(lambda instr: self._camera_texture.bind)
+                Rectangle(size=self._resolution)
+
+
+class AndroidCamera(BaseCamera):
+    # (640, 480) or (1280, 720) or ...
+    camera_resolution = (480, 640)
+    counter = 0
+
+    def _on_index(self, *largs):
+        # from kivy.core.camera.camera_android import CameraAndroid
+        self._camera = None
+        if self.index < 0:
+            return
+
+        if BaseCamera.core_camera is not None:
+            self._camera = BaseCamera.core_camera
+        else:
+            if self.resolution[0] < 0 or self.resolution[1] < 0:
+                self._camera = MyCameraAndroid(index=self.index, stopped=True)
+            else:
+                self._camera = MyCameraAndroid(
+                    index=self.index, resolution=self.resolution, stopped=True
+                )
+            BaseCamera.core_camera = self._camera
+
+        self._camera.bind(on_load=self._camera_loaded)
+
+    def on_play(self, instance, value):
+        if not self._camera:
+            return
+
+        Logger.info(f"Starting camera={instance} value={value}")
+        if value:
+            self._camera.start()
+            self._camera.bind(on_texture=self.on_tex)
+        else:
+            self._camera.stop()
+
+    # def _camera_loaded(self, *largs):
+    #     print(f"Camera loaded, resolution [{self.camera_resolution}] !")
+    #     self.texture = Texture.create(
+    #         size=np.flip(self.camera_resolution), colorfmt="rgb"
+    #     )
+    #     self.texture_size = list(self.texture.size)
+    #     self.frame: Optional[np.ndarray] = None
+    #
+
+    def decode_frame(self, buf):
+        """
+        Decode image data from grabbed frame.
+
+        This method depends on OpenCV and NumPy - however it is only used for
+        fetching the current frame as a NumPy array, and not required when
+        this :class:`CameraAndroid` provider is simply used by a
+        :class:`~kivy.uix.camera.Camera` widget.
+        """
+
+        w, h = self._camera._resolution
+        arr = np.fromstring(buf, "uint8").reshape((w + w // 2, h))
+        arr = cv2.cvtColor(arr, 93)  # NV21 -> BGR
+        return np.rot90(arr, 3)
+
+    def get_current_frame(self) -> Optional[np.ndarray]:
+        buffer = self._camera.grab_frame()
+        if buffer is not None:
+            return self.decode_frame(buffer)
+        return buffer
+
+    #
+    # @profile
+    # def on_tex(self, *l):
+    #     if self._camera._buffer is None:
+    #         return None
+    #
+    #     self.frame = self.frame_from_buf()
+    #     self.frame_to_screen(self.frame)
+    #
+    #     super(AndroidCamera, self).on_tex(*l)
+    #
+    # # @profile
+    # def frame_from_buf(self):
+    #     buffer = self._camera._buffer
+    #     if buffer is None:
+    #         return None
+    #
+    #     w, h = self.resolution
+    #     frame = np.frombuffer(self._camera._buffer.tostring(), "uint8").reshape(
+    #         (h + h // 2, w)
+    #     )
+    #     frame_bgr = cv2.cvtColor(frame, 93)
+    #     return np.rot90(frame_bgr, 3)
+    #
+    # # @profile
+    # def frame_to_screen(self, frame):
+    #     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    #
+    #     flipped = np.flip(frame_rgb, 0)
+    #     buf = flipped.tostring()
+    #     self.texture.blit_buffer(buf, colorfmt="rgb", bufferfmt="ubyte")
+
+
+class LinuxCamera(BaseCamera):
+    camera_resolution = (-1, -1)
 
     def on_tex(self, *l):
         super(LinuxCamera, self).on_tex(*l)
@@ -206,13 +325,15 @@ class LinuxCamera(BaseCamera):
 class CameraWidget(BaseCamera):
     def __new__(cls, *args, **kwargs) -> BaseCamera:
         if kivy.platform != "linux":
-            return AndroidCamera(
-                *args, **kwargs, resolution=AndroidCamera.camera_resolution
+            camera = AndroidCamera(
+                *args, **kwargs, resolution=AndroidCamera.camera_resolution, play=False
             )
         else:
-            return LinuxCamera(
-                *args, **kwargs, resolution=LinuxCamera.camera_resolution
+            camera = LinuxCamera(
+                *args, **kwargs, resolution=LinuxCamera.camera_resolution, play=False
             )
+        camera.core_camera.stop()
+        return camera
 
 
 def numpy_to_image(img, image: Image):
