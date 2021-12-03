@@ -38,38 +38,57 @@
                 text: ""
 
 
+# Menu item in the DrawerList list.
+<ItemDrawer>:
+    theme_text_color: "Custom"
+    on_release: self.parent.set_color_item(self)
+
+    IconLeftWidget:
+        id: icon
+        icon: root.icon
+        theme_text_color: "Custom"
+        text_color: root.text_color
+
+
 <ContentNavigationDrawer@BoxLayout>:
     ScrollView:
-        MDList:
-            OneLineListItem:
+        DrawerList:
+            id: md_list
+            ItemDrawer:
+                icon: "cog"
                 text: "Settings"
                 on_release:
                     app.open_settings()
 
-            OneLineListItem:
+            ItemDrawer:
                 text: "Logs"
                 on_release:
-                    app.open_logger_history()
-
-            OneLineListItem:
+                    app.open_logger_history(self)
+#
+            ItemDrawer:
                 text: "Keypoints Viewer"
                 on_release:
-                    app.open_keypoints_viewer()
+                    app.open_keypoints_viewer(self)
 
-            OneLineListItem:
+            ItemDrawer:
                 text: "Camera Viewer"
                 on_release:
-                    app.open_camera_viewer()
+                    app.open_camera_viewer(self)
 
-            OneLineListItem:
+            ItemDrawer:
                 text: "Tracker Viewer"
                 on_release:
-                    app.open_tracker_viewer()
+                    app.open_tracker_viewer(self)
 
-            OneLineListItem:
-                text: "Basic Stitcher Viewer"
+            ItemDrawer:
+                text: "Basic Stitcher"
                 on_release:
-                    app.open_basic_stitcher_viewer()
+                    app.open_basic_stitcher_viewer(self)
+
+            ItemDrawer:
+                text: "Left Right Stitcher"
+                on_release:
+                    app.open_left_to_right_stitcher_viewer(self)
 
 
 <MainAppScreen>:
@@ -81,13 +100,14 @@
     camera_viewer: camera_viewer
     tracker_viewer: tracker_viewer
     basic_stitcher_viewer: basic_stitcher_viewer
+    left_to_right_stitcher_viewer: left_to_right_stitcher_viewer
 
     MDToolbar:
         id: toolbar
         pos_hint: {"top": 1}
         elevation: 8
         title: "Sticzinger"
-        left_action_items: [["menu", app.open_nav_drawer], ["eye", app.open_app_settings]]
+        left_action_items: [["menu", app.open_nav_drawer], ["cog", app.open_app_settings]]
 
     MDNavigationLayout:
         x: toolbar.height
@@ -116,6 +136,9 @@
                 id: basic_stitcher_viewer
                 name: "basic-stitcher-viewer"
 
+            LeftToRightStitcherScreen:
+                id: left_to_right_stitcher_viewer
+                name: "left-to-right-stitcher-viewer"
 
         MDNavigationDrawer:
             id: nav_drawer

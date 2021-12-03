@@ -3,9 +3,10 @@ from typing import Optional
 
 import cv2
 import numpy as np
+from kivy.animation import Animation
 from kivy.clock import Clock
 from kivy.lang import Builder
-from kivy.properties import ObjectProperty
+from kivy.properties import ObjectProperty, ListProperty, NumericProperty
 from kivy.uix.screenmanager import ScreenManager
 from kivymd.uix.button import MDFloatingActionButton, MDFloatingBottomButton, MDFloatingActionButtonSpeedDial
 
@@ -13,6 +14,7 @@ import keypoints_extractors as ke_ops
 import matching
 import storage
 import transform
+from cameras import CameraWidget
 from logging_ops import profile, measuretime
 from uix.base import ProcessingCameraScreen
 from uix.preview_image import PreviewPanoramaScreen
@@ -34,7 +36,7 @@ Builder.load_string(
     MDFloatingActionButton:
         id: take_photo_button
         text: "Capture"
-        icon: "camera"
+        icon: "camera-plus"
         pos_hint: {"center_x": 0.5, "center_y": 0.15}
         elevation: 8
         on_release:
@@ -197,7 +199,8 @@ class BasicStitcherScreen(ProcessingCameraScreen):
 
         if self.stitching_state == STITCHING_INITIALIZED:
             status = self.extract_keypoints("current", self.current_frame, log=False)
-            self.compute_keypoints_and_matching_info()
+            if status:
+                self.compute_keypoints_and_matching_info()
 
     def extract_keypoints(
         self,
@@ -244,22 +247,12 @@ class BasicStitcherScreen(ProcessingCameraScreen):
     @profile
     def stitch(self, *args):
 
-        if "photo" not in self.data:
-            return
+        H, matches = self.match_current_photo_with_pano()
+        if H is None:
+            return False
 
-        if "current" not in self.data:
-            return
-
-        kp1, des1, stitched_img = self.data["photo"]
-        kp2, des2, current_photo = self.data["current"]
-
-        with measuretime(
-            f"Matching", extra={"num_left_kpt": len(kp1), "num_right:kpt": len(kp2)}
-        ):
-            H, matches = matching.match_images(
-                kp1, des1, kp2, des2, **self.conf.matching_configuration
-            )
-
+        stitched_img = self.data["photo"][2]
+        current_photo = self.data["current"][2]
         min_matches = self.conf.matching_conf.min_matches.value
 
         if len(matches) > min_matches:
@@ -280,28 +273,44 @@ class BasicStitcherScreen(ProcessingCameraScreen):
             )
             return False
 
-    @profile
-    def compute_keypoints_and_matching_info(self):
+    def match_current_photo_with_pano(self):
 
-        if self.stitching_state == STITCHING_NONE:
+        if "photo" not in self.data:
             return None, []
 
         if "current" not in self.data:
             return None, []
 
+        kp1, des1, stitched_img = self.data["photo"]
+        kp2, des2, current_photo = self.data["current"]
+
+        with measuretime(
+                f"Matching", extra={"num_left_kpt": len(kp1), "num_right:kpt": len(kp2)}
+        ):
+            H, matches = matching.match_images(
+                kp1, des1, kp2, des2, **self.conf.matching_configuration
+            )
+        return H, matches
+
+    @profile
+    def compute_keypoints_and_matching_info(self):
+
+        if self.stitching_state == STITCHING_NONE:
+            return None, None, []
+
+        if "current" not in self.data:
+            return None, None, []
+
         kp1, des1 = self.data["photo"][:2]
         kp2, des2 = self.data["current"][:2]
 
-        _, matches = matching.match_images(
+        H, matches = matching.match_images(
             kp1, des1, kp2, des2, **self.conf.matching_configuration
         )
-
-        num_matches = len(matches)
 
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()
         normalized_points = self.to_normed_coords(matched_points, dsize)
-        normalized_points[:, 1] = 1 - normalized_points[:, 1]
         self.camera_widget.render_points(normalized_points)
 
-        return num_matches, normalized_points
+        return H, matches, normalized_points

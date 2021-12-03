@@ -1,59 +1,6 @@
 import numpy as np
 import cv2
 
-# from kivy.lang import Builder
-# from kivymd.uix.boxlayout import MDBoxLayout
-# from kivymd.uix.button import MDFlatButton
-# from kivymd.uix.dialog import MDDialog
-
-# KV = '''
-# <MatchingConfiguration>
-#     orientation: "vertical"
-#     spacing: "12dp"
-#     size_hint_y: None
-#     height: "120dp"
-#
-#     MDBoxLayout:
-#         MDLabel:
-#             text: "Match Cross check (BF only)"
-#         MDSwitch:
-#
-#     MDBoxLayout:
-#         MDLabel:
-#             text: "Detector Type"
-#         MDDropdownMenu:
-#             id: detector_type
-#             text: "SIFT"
-#             items: ["SIFT", "ORB", "BRISK"]
-#
-# '''
-#
-# Builder.load_string(KV)
-#
-#
-# class MatchingConfiguration(MDBoxLayout):
-#     pass
-#
-#
-# def create_configuration_dialog():
-#     conf = MatchingConfiguration()
-#
-#
-#     dialog = MDDialog(
-#         title="Address:",
-#         type="custom",
-#         content_cls=conf,
-#         buttons=[
-#             MDFlatButton(
-#                 text="CANCEL",
-#             ),
-#             MDFlatButton(
-#                 text="OK",
-#             ),
-#         ],
-#     )
-#     return dialog
-
 
 def match_images(
     kp1,

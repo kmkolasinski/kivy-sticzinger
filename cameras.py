@@ -3,13 +3,11 @@ from typing import Optional
 import cv2
 import kivy
 import numpy as np
+from kivy.core.camera import Camera as CoreCamera
 from kivy.graphics import InstructionGroup, Color, Ellipse
-
 from kivy.graphics.texture import Texture
 from kivy.uix.camera import Camera
 from kivy.uix.image import Image
-
-from kivy.core.camera import Camera as CoreCamera
 
 
 class BaseCamera(Camera):
@@ -17,7 +15,7 @@ class BaseCamera(Camera):
     core_camera: Optional[CoreCamera] = None
 
     def get_current_frame(self) -> Optional[np.ndarray]:
-        pass
+        raise NotImplementedError
 
     def get_or_create_canvas_points_group(self):
         if self.canvas_points_group is None:
@@ -29,16 +27,11 @@ class BaseCamera(Camera):
 
     def render_points(self, points: np.ndarray):
         """
-        points: [N, 2] image normalized (x, y)
+        points: [N, 2] camera image normalized (x, y)
         """
         group = self.get_or_create_canvas_points_group()
-
-        sx, sy = self.norm_image_size
-        w, h = self.size
-        ox, oy = (w - sx) / 2, (h - sy) / 2
-        for point in points:
-            x, y = point
-            x, y = int(x * sx + ox), int(y * sy + oy)
+        points = self.to_canvas_coords(points)
+        for x, y in points:
             color = Color(223 / 255, 75 / 255, 73 / 255, 0.5)
             group.add(color)
             rect = Ellipse(pos=(x, y), size=(24, 24))
@@ -47,6 +40,9 @@ class BaseCamera(Camera):
         self.canvas.add(group)
 
     def to_canvas_coords(self, points: np.ndarray):
+        """
+        points: [N, 2] camera image normalized (x, y)
+        """
         new_points = []
         sx, sy = self.norm_image_size
         w, h = self.size

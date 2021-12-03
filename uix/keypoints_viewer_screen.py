@@ -39,5 +39,5 @@ class KeypointsViewerScreen(ProcessingCameraScreen):
         extractor_name = conf.keypoint_detector.value
         extractor = ke_ops.create_keypoint_extractor(extractor_name)
 
-        points = ke_ops.detect_screen_keypoints(image, dsize, extractor)
+        points = ke_ops.detect_keypoints(image, dsize, extractor)
         self.camera_widget.render_points(points)

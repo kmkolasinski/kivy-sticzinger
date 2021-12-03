@@ -54,7 +54,7 @@ def create_keypoint_extractor(name: str) -> CVWrapper:
     return CVWrapper(fe)
 
 
-def detect_screen_keypoints(
+def detect_keypoints(
     image: Optional[np.ndarray], dsize: Tuple[int, int], extractor: CVWrapper
 ) -> np.ndarray:
 
@@ -65,7 +65,4 @@ def detect_screen_keypoints(
     points = [(kp.pt[0], kp.pt[1]) for kp in keypoints]
 
     normalized_points = points / np.array([dsize])
-
-    # inverting Y coordinates
-    normalized_points[:, 1] = 1 - normalized_points[:, 1]
     return normalized_points

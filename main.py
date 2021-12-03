@@ -1,18 +1,22 @@
 import kivy
 from kivy import Logger
+from kivy.clock import Clock
 from kivy.lang import Builder
 from kivy.logger import LoggerHistory
-from kivy.properties import ObjectProperty, ConfigParser
+from kivy.properties import ObjectProperty, ConfigParser, StringProperty, ListProperty
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.settings import Settings, SettingsWithTabbedPanel
 from kivy.utils import escape_markup
 from kivymd.app import MDApp
+from kivymd.theming import ThemableBehavior
+from kivymd.uix.list import OneLineListItem, OneLineIconListItem, MDList
 from kivymd.uix.navigationdrawer import MDNavigationDrawer
 
 import settings as settings_ops
 from uix.basic_stitcher import BasicStitcherScreen
 from uix.camera_viewer_screen import CameraViewerScreen
 from uix.keypoints_viewer_screen import KeypointsViewerScreen
+from uix.left_to_right_stitcher import LeftToRightStitcherScreen
 from uix.tracker_screen import TrackerScreen
 
 Builder.load_file("main.kv")
@@ -33,6 +37,23 @@ class LoggerHistoryScreen(Screen):
         self.logs_label.text = self.get_logger_history()
 
 
+class ItemDrawer(OneLineIconListItem):
+    icon = StringProperty("eye")
+    text_color = ListProperty((1, 1, 1, 1))
+
+
+class DrawerList(ThemableBehavior, MDList):
+    def set_color_item(self, instance_item):
+        """Called when tap on a menu item."""
+
+        # Set the color of the icon and text for the menu item.
+        for item in self.children:
+            if item.text_color == self.theme_cls.primary_color:
+                item.text_color = self.theme_cls.text_color
+                break
+        instance_item.text_color = self.theme_cls.primary_color
+
+
 class MainAppScreen(Screen):
     nav_drawer: MDNavigationDrawer = ObjectProperty()
     screen_manager: ScreenManager = ObjectProperty()
@@ -41,6 +62,7 @@ class MainAppScreen(Screen):
     camera_viewer: CameraViewerScreen = ObjectProperty()
     tracker_viewer: TrackerScreen = ObjectProperty()
     basic_stitcher_viewer: BasicStitcherScreen = ObjectProperty()
+    left_to_right_stitcher_viewer: LeftToRightStitcherScreen = ObjectProperty()
 
 
 if kivy.platform == "linux":
@@ -77,8 +99,13 @@ class SticzingerApp(MDApp):
         self.main_screen.nav_drawer.bind(
             state=self.nav_drawer_state_change
         )
-        self.main_screen.screen_manager.current = "basic-stitcher-viewer"
+        self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
+        # Clock.schedule_once(self.startup)
         return self.main_screen
+
+    # def startup(self, *args):
+    #     item = self.main_screen.nav_drawer.children[0].ids.md_list.children[0]
+    #     self.open_left_to_right_stitcher_viewer(item)
 
     def on_stop(self):
         Logger.info("Exiting!")
@@ -91,33 +118,40 @@ class SticzingerApp(MDApp):
     def open_nav_drawer(self, instance):
         self.root.nav_drawer.set_state("open")
 
-    def open_screen(self, name: str):
+    def open_screen(self, item: ItemDrawer, name: str):
         if name != self.root.screen_manager.current:
-            self.main_screen.keypoints_viewer.camera_widget.play = False
-            self.main_screen.camera_viewer.camera_widget.play = False
-            self.main_screen.tracker_viewer.camera_widget.play = False
+            self.main_screen.keypoints_viewer.pause()
+            self.main_screen.camera_viewer.pause()
+            self.main_screen.tracker_viewer.pause()
+            self.main_screen.basic_stitcher_viewer.pause()
+            self.main_screen.left_to_right_stitcher_viewer.pause()
+            # TODO maybe reset state for stitchers here ?
 
         self.close_nav_drawer()
+        self.main_screen.ids.toolbar.title = item.text
         self.root.screen_manager.current = name
 
     def nav_drawer_state_change(self, instance, value):
         Logger.info(f"Navigation drawer state changed: {instance} {value}")
 
-    def open_logger_history(self):
+    def open_logger_history(self, item: ItemDrawer):
         self.main_screen.logger_history.update_logger_history()
-        self.open_screen(self.main_screen.logger_history.name)
+        self.open_screen(item, self.main_screen.logger_history.name)
 
-    def open_keypoints_viewer(self):
-        self.open_screen(self.main_screen.keypoints_viewer.name)
+    def open_keypoints_viewer(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.keypoints_viewer.name)
 
-    def open_camera_viewer(self):
-        self.open_screen(self.main_screen.camera_viewer.name)
+    def open_camera_viewer(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.camera_viewer.name)
 
-    def open_tracker_viewer(self):
-        self.open_screen(self.main_screen.tracker_viewer.name)
+    def open_tracker_viewer(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.tracker_viewer.name)
 
-    def open_basic_stitcher_viewer(self):
-        self.open_screen(self.main_screen.basic_stitcher_viewer.name)
+    def open_basic_stitcher_viewer(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.basic_stitcher_viewer.name)
+
+    def open_left_to_right_stitcher_viewer(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.left_to_right_stitcher_viewer.name)
 
     def open_app_settings(self, *args):
         self.open_settings()
