@@ -324,3 +324,23 @@ def homography_transform(array: np.ndarray, homography: np.ndarray) -> np.ndarra
     points = points.reshape([-1, 2])
 
     return points
+
+
+def draw_transformed_image_borders(
+    stitched_img: np.ndarray, current_img_frame: np.ndarray, H: np.ndarray
+):
+    height, width = stitched_img.shape[:2]
+    lines = [
+        ([[0, 0], [width, 0]], (255, 0, 0)),
+        ([[width, 0], [width, height]], (0, 255, 0)),
+        ([[width, height], [0, height]], (255, 0, 0)),
+        ([[0, height], [0, 0]], (0, 255, 0)),
+    ]
+    line_thickness = 2
+
+    for line, color in lines:
+        line = np.array(line, dtype=np.float32)
+        line = homography_transform(line, H).astype(np.int32)
+        x1, y1 = line[0]
+        x2, y2 = line[1]
+        cv.line(current_img_frame, (x1, y1), (x2, y2), color, thickness=line_thickness)

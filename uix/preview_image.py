@@ -76,4 +76,7 @@ class PreviewPanoramaScreen(Screen):
         self.set_image(image)
         self.accept_callback = accept_callback
         self.cancel_callback = cancel_callback
+
+        self.enable_accept(self.accept_callback is not None)
+
         manager.switch_to(self)

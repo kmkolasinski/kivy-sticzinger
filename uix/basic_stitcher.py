@@ -1,21 +1,20 @@
-from time import sleep
-from typing import Tuple, Optional
+import datetime
+from typing import Optional
 
 import cv2
-from kivy.animation import Animation
+import numpy as np
 from kivy.clock import Clock
 from kivy.lang import Builder
-from kivy.properties import ListProperty, ObjectProperty
+from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import ScreenManager
-from kivymd.uix.button import MDFloatingActionButton
-from kivymd.uix.snackbar import Snackbar
+from kivymd.uix.button import MDFloatingActionButton, MDFloatingBottomButton, MDFloatingActionButtonSpeedDial
 
+import keypoints_extractors as ke_ops
 import matching
+import storage
 import transform
 from logging_ops import profile, measuretime
-from uix.base import ProcessingCameraScreen, RectShape
-import numpy as np
-import keypoints_extractors as ke_ops
+from uix.base import ProcessingCameraScreen
 from uix.preview_image import PreviewPanoramaScreen
 
 Builder.load_string(
@@ -24,6 +23,7 @@ Builder.load_string(
 <BasicStitcherScreen>:
     camera_widget: camera_widget
     take_photo_button: take_photo_button
+    speed_dial_button: speed_dial_button
 
     CameraWidget:
         id: camera_widget
@@ -38,7 +38,21 @@ Builder.load_string(
         pos_hint: {"center_x": 0.5, "center_y": 0.15}
         elevation: 8
         on_release:
-            self.parent.take_photo_job()            
+            self.parent.take_photo_job()        
+            
+    MDFloatingActionButtonSpeedDial:
+        id: speed_dial_button
+        data: self.parent.speed_dial_actions
+        root_button_anim: True
+        pos_hint: {"center_x": 0.8, "center_y": 0.15}
+        callback: self.parent.speed_dial_callback
+        
+        on_open:
+            self.parent.pause()
+            take_photo_button.disabled = True             
+        on_close: 
+            self.parent.play()
+            take_photo_button.disabled = False            
 # kv_end
 """
 )
@@ -49,6 +63,12 @@ STITCHING_INITIALIZED = "STITCHING_INITIALIZED"
 
 class BasicStitcherScreen(ProcessingCameraScreen):
     take_photo_button: MDFloatingActionButton = ObjectProperty()
+    speed_dial_button: MDFloatingActionButtonSpeedDial = ObjectProperty()
+
+    speed_dial_actions = {
+        "Preview": "eye",
+        "Finish Current Sequence": "cancel",
+    }
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -56,12 +76,14 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.stitching_state = None
         self.photo_index = 0
         self.is_taking_photo = False
+        self.session_id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.preview_window = PreviewPanoramaScreen(name="panorama-preview-screen")
 
     def reset_state(self):
         self.data = {}
         self.set_stitching_state(STITCHING_NONE)
         self.photo_index = 0
+        self.session_id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.is_taking_photo = False
         self.camera_widget.render_points(np.zeros([0, 2]))
 
@@ -78,25 +100,60 @@ class BasicStitcherScreen(ProcessingCameraScreen):
     def enable_gui(self, *args):
         self.take_photo_button.disabled = False
 
-    def preview_current_panorama(self):
+    def save_image(self, image: np.ndarray, name: str):
+        session_id = self.session_id
+
+        def _save(*args):
+            with measuretime(f"Saving photo {name}"):
+                storage.save_image(image, name, session_id)
+
+        Clock.schedule_once(_save)
+
+    def save_data_image(self, key: str):
+        name = f"{self.photo_index}".zfill(3) + ".jpg"
+        self.save_image(self.data[key][2], name)
+        self.photo_index += 1
+
+    def preview_pano_proposal(self):
         self.pause()
-        image = self.data["photo"][2]
+        image = self.data["pano_proposal"][2]
         self.preview_window.show(
             self.manager, image, self.accept_pano_proposal, self.cancel_preview_screen
         )
 
+    def preview_current_panorama(self):
+        self.pause()
+        image = self.data["photo"][2]
+        self.preview_window.show(
+            self.manager, image, None, self.cancel_preview_screen
+        )
+
     @profile
-    def accept_pano_proposal(self,  manager: ScreenManager):
+    def accept_pano_proposal(self, manager: ScreenManager):
         manager.switch_to(self)
-        self.data["photo"] = self.data["pano_proposal"]
-        self.photo_index += 1
-        # image = self.data["photo"][2].copy()
-        # self.save_image_job(image, "stitched.jpg")
+        self.accept_current_panorama()
         self.play()
+
+    @profile
+    def accept_current_panorama(self):
+        self.data["photo"] = self.data["pano_proposal"]
+        self.save_data_image("current")
+        self.save_image(self.data["photo"][2], "stitched.jpg")
 
     def cancel_preview_screen(self, manager: ScreenManager):
         manager.switch_to(self)
         self.play()
+
+    def speed_dial_callback(self, instance: MDFloatingBottomButton):
+        if self.stitching_state != STITCHING_INITIALIZED:
+            self.show_error_snackbar(f"Start photos sequence first !")
+            return
+
+        if instance.icon == "cancel":
+            self.reset_state()
+            self.speed_dial_button.close_stack()
+        elif instance.icon == "eye":
+            self.preview_current_panorama()
 
     def take_photo_job(self):
         self.disable_gui()
@@ -111,11 +168,14 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         if self.stitching_state is None:
             self.set_stitching_state(STITCHING_INITIALIZED)
             self.extract_keypoints("photo", image)
-            self.photo_index += 1
+            self.save_data_image("photo")
         elif self.stitching_state == STITCHING_INITIALIZED:
             status = self.stitch()
             if status:
-                self.preview_current_panorama()
+                if self.is_auto_next_enabled:
+                    self.accept_current_panorama()
+                else:
+                    self.preview_pano_proposal()
 
         self.enable_gui()
         self.is_taking_photo = False
@@ -200,26 +260,13 @@ class BasicStitcherScreen(ProcessingCameraScreen):
                 kp1, des1, kp2, des2, **self.conf.matching_configuration
             )
 
-        with measuretime(f"Drawing Matches", extra={"num_matches": len(matches)}):
-            draw_matches = [[m] for m in matches]
-            matches_image = cv2.drawMatchesKnn(
-                stitched_img,
-                kp1,
-                current_photo,
-                kp2,
-                draw_matches,
-                flags=2,
-                outImg=None,
-            )
-            self.data["matches_image"] = matches_image
-
         min_matches = self.conf.matching_conf.min_matches.value
 
         if len(matches) > min_matches:
             with measuretime(f"Glueing images"):
                 current_photo = current_photo.copy()
                 stitched_img = stitched_img.copy()
-                self.draw_transformed_image_borders(stitched_img, current_photo, H)
+                transform.draw_transformed_image_borders(stitched_img, current_photo, H)
 
                 stitched_img, _ = transform.cv_blend_images(
                     current_photo, stitched_img, np.linalg.inv(H)
@@ -228,11 +275,9 @@ class BasicStitcherScreen(ProcessingCameraScreen):
             self.extract_keypoints("pano_proposal", stitched_img, resize=False)
             return True
         else:
-            Snackbar(
-                text=f"Not enough matches ({len(matches)}) required > {min_matches} !",
-                bg_color=(1, 0, 0, 0.5),
-                duration=2,
-            ).open()
+            self.show_error_snackbar(
+                f"Not enough matches ({len(matches)}) required > {min_matches} !"
+            )
             return False
 
     @profile
@@ -260,22 +305,3 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.camera_widget.render_points(normalized_points)
 
         return num_matches, normalized_points
-
-    def draw_transformed_image_borders(
-        self, stitched_img: np.ndarray, current_img: np.ndarray, H: np.ndarray
-    ):
-        height, width = stitched_img.shape[:2]
-        lines = [
-            ([[0, 0], [width, 0]], (255, 0, 0)),
-            ([[width, 0], [width, height]], (0, 255, 0)),
-            ([[width, height], [0, height]], (255, 0, 0)),
-            ([[0, height], [0, 0]], (0, 255, 0)),
-        ]
-        line_thickness = 2
-
-        for line, color in lines:
-            line = np.array(line, dtype=np.float32)
-            line = transform.homography_transform(line, H).astype(np.int32)
-            x1, y1 = line[0]
-            x2, y2 = line[1]
-            cv2.line(current_img, (x1, y1), (x2, y2), color, thickness=line_thickness)

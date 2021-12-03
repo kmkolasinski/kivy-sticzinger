@@ -8,6 +8,7 @@ from kivy.app import App
 from kivy.clock import mainthread
 from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import Screen
+from kivymd.uix.snackbar import Snackbar
 
 from cameras import CameraWidget
 from logging_ops import elapsedtime
@@ -46,6 +47,10 @@ class ProcessingScreenBase(Screen):
     @property
     def max_wait_time(self) -> float:
         return self.conf.stitching_conf.thread_max_wait_time.value
+
+    @property
+    def is_auto_next_enabled(self) -> bool:
+        return self.conf.stitching_conf.auto_next_image.value
 
     def on_enter(self, *args):
         print("Entering screen!", self)
@@ -129,3 +134,6 @@ class ProcessingCameraScreen(ProcessingScreenBase):
         (x1, y1), (x2, y2) = self.camera_widget.to_canvas_coords(points)
         rect = (x1, y1, x2 - x1, y2 - y1)
         return rect
+
+    def show_error_snackbar(self, text: str):
+        Snackbar(text=text, bg_color=(1, 0, 0, 0.5), duration=2).open()
