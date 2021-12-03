@@ -3,7 +3,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 from kivy.lang import Builder
 from kivy.properties import ObjectProperty
 from kivy.uix.screenmanager import ScreenManager
@@ -88,6 +88,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.session_id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.preview_window = PreviewPanoramaScreen(name="panorama-preview-screen")
 
+    @mainthread
     def reset_state(self):
         self.data = {}
         self.set_stitching_state(STITCHING_NONE)
