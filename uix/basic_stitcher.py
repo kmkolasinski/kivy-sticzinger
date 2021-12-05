@@ -326,7 +326,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         )
 
         min_matches = self.conf.matching_conf.min_matches.value
-        self.num_matches_label.text = f"{len(matches)} / {min_matches}"
+        self.num_matches_label.text = f"FPS: {self.processing_fps:.1f} Matches: {len(matches)} / {min_matches}"
 
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()

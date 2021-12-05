@@ -33,13 +33,6 @@ Builder.load_string(
         allow_stretch: True
         pos: self.parent.pos
         size: self.parent.size
-        # canvas.before:
-        #     PushMatrix
-        #     Rotate:
-        #         angle:-90
-        #         origin:self.center
-        # canvas.after:
-        #     PopMatrix
             
     MDLabel:
         id: num_matches_label

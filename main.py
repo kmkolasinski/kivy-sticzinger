@@ -18,6 +18,7 @@ from uix.keypoints_viewer_screen import KeypointsViewerScreen
 from uix.left_to_right_stitcher import LeftToRightStitcherScreen
 from uix.tracker_screen import TrackerScreen
 
+
 Builder.load_file("main.kv")
 
 
@@ -88,6 +89,7 @@ if kivy.platform == "android":
             Permission.WRITE_EXTERNAL_STORAGE,
         ]
     )
+
 
 
 class SticzingerApp(MDApp):

@@ -37,6 +37,7 @@ class ProcessingScreenBase(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.processing_thread: Optional[StoppableThread] = None
+        self.processing_fps = 1
 
     @property
     def conf(self) -> AppSettings:
@@ -70,15 +71,27 @@ class ProcessingScreenBase(Screen):
 
     def processing_fn_loop(self):
         while self.should_process_frame():
-            with elapsedtime() as dt:
-                self.processing_fn_step()
+            with elapsedtime() as full_step_dt:
+                with elapsedtime() as dt:
+                    self.processing_fn_step()
 
-            wait_seconds = max(self.max_wait_time - dt.seconds, 0)
-            time.sleep(wait_seconds)
+                wait_seconds = max(self.max_wait_time - dt.seconds, 0)
+                time.sleep(wait_seconds)
+
+            self.processing_fps = 0.9 * self.processing_fps + 0.1 / full_step_dt.seconds
 
     @abstractmethod
     def processing_fn_step(self):
         pass
+
+    @abstractmethod
+    def is_playing(self) -> bool:
+        pass
+
+    @abstractmethod
+    def is_paused(self) -> bool:
+        pass
+
 
 
 class ProcessingCameraScreen(ProcessingScreenBase):

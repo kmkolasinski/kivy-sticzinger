@@ -78,7 +78,7 @@ def profile(name: str = None, key = None):
             if len(PROFILER_STATS[stats_key]) > 100:
                 PROFILER_STATS[stats_key] = PROFILER_STATS[stats_key][1:]
 
-            PROFILER_HISTORY.append((dt.seconds, stats_key))
+            PROFILER_HISTORY.append((dt.t, dt.seconds, stats_key))
 
             return method_output
 

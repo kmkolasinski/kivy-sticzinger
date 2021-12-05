@@ -151,7 +151,7 @@ class KeypointsExtractorConf(PropertiesGroup):
         500,
         "Image Size",
         "Keypoints extraction image size",
-        options=["300", "350", "400", "500", "600"],
+        options=["250", "300", "350", "400", "500", "600"],
     )
 
     def get_image_size(self) -> Tuple[int, int]:
