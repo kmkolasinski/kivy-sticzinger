@@ -25,7 +25,7 @@ Builder.load_string(
     camera_widget: camera_widget
     take_photo_button: take_photo_button
     speed_dial_button: speed_dial_button
-    num_matches_label: num_matches_label
+    profile_label: profile_label
 
     CameraWidget:
         id: camera_widget
@@ -34,7 +34,7 @@ Builder.load_string(
         size: self.parent.size
     
     MDLabel:
-        id: num_matches_label
+        id: profile_label
         text: ""
         pos_hint: {"center_x": 0.5, "center_y": 0.2}
         color: 1, 1, 1, 1
@@ -72,7 +72,7 @@ STITCHING_INITIALIZED = "STITCHING_INITIALIZED"
 class BasicStitcherScreen(ProcessingCameraScreen):
     take_photo_button: MDFloatingActionButton = ObjectProperty()
     speed_dial_button: MDFloatingActionButtonSpeedDial = ObjectProperty()
-    num_matches_label: MDLabel = ObjectProperty()
+    profile_label: MDLabel = ObjectProperty()
 
     speed_dial_actions = {
         "Preview": "eye",
@@ -216,6 +216,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
             if status:
                 self.compute_keypoints_and_matching_info()
 
+    @profile()
     def extract_keypoints(
         self,
         key: str,
@@ -326,7 +327,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         )
 
         min_matches = self.conf.matching_conf.min_matches.value
-        self.num_matches_label.text = f"FPS: {self.processing_fps:.1f} Matches: {len(matches)} / {min_matches}"
+        self.profile_label.text = f"FPS: {self.processing_fps:.1f}\nMatches: {len(matches)} / {min_matches}"
 
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()

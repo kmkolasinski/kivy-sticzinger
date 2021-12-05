@@ -5,6 +5,8 @@ from typing import Dict, Any
 import cv2
 from kivy.utils import platform
 
+from logging_ops import profile
+
 
 def get_save_path() -> Path:
     if platform == "android":
@@ -21,6 +23,7 @@ def get_save_path() -> Path:
     return Path(PATH)
 
 
+@profile(name="storage.save_image")
 def save_image(image, name: str, session: str = None) -> Path:
 
     PATH = get_save_path() / session

@@ -19,7 +19,7 @@ Builder.load_string(
     camera_widget: camera_widget
     take_photo_button: take_photo_button
     speed_dial_button: speed_dial_button
-    num_matches_label: num_matches_label
+    profile_label: profile_label
     
     canvas.after:
         Color:
@@ -35,7 +35,7 @@ Builder.load_string(
         size: self.parent.size
             
     MDLabel:
-        id: num_matches_label
+        id: profile_label
         text: ""
         pos_hint: {"center_x": 0.5, "center_y": 0.2}
         color: 1, 1, 1, 1

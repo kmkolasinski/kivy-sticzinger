@@ -40,7 +40,7 @@ class measuretime:
 
     def __exit__(self, *args, **kwargs):
         self.seconds = time.perf_counter() - self.t
-        if self.log and self.seconds > 1e-3:
+        if self.log and self.seconds > 0.001:
             Logger.info(f"{self.name}: took {self.seconds:5.3f} [s] {self.params}")
 
 
@@ -72,13 +72,14 @@ def profile(name: str = None, key = None):
             with measuretime(f"Calling {name_key} {key_str}") as dt:
                 method_output = method(self, *method_args, **method_kwargs)
 
-            stats_key = f"{name_key}/{key_str}"
+            if dt.seconds > 0.001:
+                stats_key = f"{name_key}/{key_str}"
 
-            PROFILER_STATS[stats_key].append(dt.seconds)
-            if len(PROFILER_STATS[stats_key]) > 100:
-                PROFILER_STATS[stats_key] = PROFILER_STATS[stats_key][1:]
+                PROFILER_STATS[stats_key].append(dt.seconds)
+                if len(PROFILER_STATS[stats_key]) > 100:
+                    PROFILER_STATS[stats_key] = PROFILER_STATS[stats_key][1:]
 
-            PROFILER_HISTORY.append((dt.t, dt.seconds, stats_key))
+                PROFILER_HISTORY.append((dt.t, dt.seconds, stats_key))
 
             return method_output
 
@@ -104,14 +105,14 @@ def get_profiler_metrics(reset: bool = True):
 
     metrics = sorted(metrics, key = lambda x: x[1])
 
-    metrics_dict = defaultdict(list)
+    metrics_dict = {"metrics": [], "history": PROFILER_HISTORY}
     for data in metrics:
-        metrics_dict["metric"].append(data[0])
-        metrics_dict["avg_time"].append(data[1])
-        metrics_dict["total_time"].append(data[2])
-        metrics_dict["num_samples"].append(data[3])
-
-    metrics_dict["history"] = PROFILER_HISTORY
+        metrics_dict["metrics"].append({
+            "key": data[0],
+            "avg_time": data[1],
+            "total_time": data[2],
+            "num_samples": data[3],
+        })
 
     if reset:
         reset_profiler()

@@ -93,7 +93,6 @@ class ProcessingScreenBase(Screen):
         pass
 
 
-
 class ProcessingCameraScreen(ProcessingScreenBase):
     camera_widget: CameraWidget = ObjectProperty()
 
