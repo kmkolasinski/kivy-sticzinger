@@ -36,11 +36,6 @@ class LoggerHistoryScreen(Screen):
     def update_logger_history(self):
         self.logs_label.text = self.get_logger_history()
 
-    def play(self):
-        pass
-
-    def pause(self):
-        pass
 
 class ItemDrawer(OneLineIconListItem):
     icon = StringProperty("eye")
@@ -59,10 +54,10 @@ class DrawerList(ThemableBehavior, MDList):
         instance_item.text_color = self.theme_cls.primary_color
 
 
-
 class MainAppScreen(Screen):
     nav_drawer: MDNavigationDrawer = ObjectProperty()
     screen_manager: ScreenManager = ObjectProperty()
+    home_screen: Screen = ObjectProperty()
     logger_history: LoggerHistoryScreen = ObjectProperty()
     keypoints_viewer: KeypointsViewerScreen = ObjectProperty()
     camera_viewer: CameraViewerScreen = ObjectProperty()
@@ -91,7 +86,6 @@ if kivy.platform == "android":
     )
 
 
-
 class SticzingerApp(MDApp):
     running = True
 
@@ -99,14 +93,14 @@ class SticzingerApp(MDApp):
 
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "Red"
+        self.theme_cls.primary_hue = "500"
+
         self.settings_cls = SettingsWithTabbedPanel
         self.use_kivy_settings = True
 
         self.main_screen = MainAppScreen()
-        self.main_screen.nav_drawer.bind(
-            state=self.nav_drawer_state_change
-        )
-        self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
+        self.main_screen.nav_drawer.bind(state=self.nav_drawer_state_change)
+        # self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
         return self.main_screen
 
     def on_stop(self):
@@ -136,6 +130,9 @@ class SticzingerApp(MDApp):
     def nav_drawer_state_change(self, instance, value):
         Logger.info(f"Navigation drawer state changed: {instance} {value}")
 
+    def open_home_screen(self, item: ItemDrawer):
+        self.open_screen(item, self.main_screen.home_screen.name)
+
     def open_logger_history(self, item: ItemDrawer):
         self.main_screen.logger_history.update_logger_history()
         self.open_screen(item, self.main_screen.logger_history.name)
@@ -156,11 +153,18 @@ class SticzingerApp(MDApp):
         self.open_screen(item, self.main_screen.left_to_right_stitcher_viewer.name)
 
     def open_app_settings(self, *args):
-        self.main_screen.screen_manager.current_screen.pause()
+        try:
+            self.main_screen.screen_manager.current_screen.pause()
+        except AttributeError:
+            pass
         self.open_settings()
 
     def close_settings(self, *args):
-        self.main_screen.screen_manager.current_screen.play()
+        try:
+            self.main_screen.screen_manager.current_screen.play()
+        except AttributeError:
+            pass
+
         return super(SticzingerApp, self).close_settings(*args)
 
     def build_config(self, config: ConfigParser):

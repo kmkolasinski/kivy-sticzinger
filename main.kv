@@ -63,6 +63,12 @@
             id: md_list
 
             ItemDrawer:
+                icon: "home"
+                text: "Home"
+                on_release:
+                    app.open_home_screen(self)
+
+            ItemDrawer:
                 icon: "information-outline"
                 text: "Logs"
                 on_release:
@@ -102,6 +108,8 @@
 <MainAppScreen>:
     nav_drawer: nav_drawer
     screen_manager: screen_manager
+
+    home_screen: home_screen
     logger_history: logger_history
 
     keypoints_viewer: keypoints_viewer
@@ -110,19 +118,59 @@
     basic_stitcher_viewer: basic_stitcher_viewer
     left_to_right_stitcher_viewer: left_to_right_stitcher_viewer
 
-
-    MDToolbar:
-        id: toolbar
-        pos_hint: {"top": 1}
-        elevation: 8
-        title: "Sticzinger"
-        left_action_items: [["menu", app.open_nav_drawer], ["cog", app.open_app_settings]]
-
     MDNavigationLayout:
         x: toolbar.height
 
         ScreenManager:
             id: screen_manager
+
+            Screen:
+                id: home_screen
+                name: "home"
+                MDBoxLayout:
+                    orientation: "vertical"
+                    size_hint: 0.9, 0.6
+                    pos_hint: {"center_x": 0.5, "center_y": 0.5}
+                    spacing: 10
+
+                    MDCard:
+                        orientation: "vertical"
+                        padding: 10
+                        size_hint: 1, 1
+                        pos_hint: {"center_x": .5, "center_y": .5}
+
+                        MDRectangleFlatIconButton:
+                            icon: "arrow-expand-all"
+                            text: "Basic Stitcher"
+                            size_hint: 1, None
+                            theme_text_color: "Secondary"
+
+                        MDSeparator:
+                            height: "1dp"
+
+                        MDLabel:
+                            text: "Use this stitcher to scan images in any direction. First picture should be taken from the front view. You should not move/walk when doing stitching scan."
+                            height: self.texture_size[1]
+
+                    MDCard:
+                        orientation: "vertical"
+                        size_hint: 1, 1
+                        padding: 10
+                        pos_hint: {"center_x": .5, "center_y": .5}
+
+                        MDRectangleFlatIconButton:
+                            icon: "arrow-expand-right"
+                            text: "Left-Right Stitcher"
+                            size_hint: 1, None
+                            theme_text_color: "Secondary"
+
+                        MDSeparator:
+                            height: "1dp"
+
+                        MDLabel:
+                            text: "User this stitcher to scan images horizontally in the right direction. Take the first picture and then move slowly into the right direction. Follow the guide line."
+                            height: self.texture_size[1]
+
 
             LoggerHistoryScreen:
                 id: logger_history
@@ -151,5 +199,12 @@
 
         MDNavigationDrawer:
             id: nav_drawer
-
             ContentNavigationDrawer:
+
+    # place MDToolbar on top of the application
+    MDToolbar:
+        id: toolbar
+        pos_hint: {"top": 1}
+        elevation: 8
+        title: "Sticzinger"
+        left_action_items: [["menu", app.open_nav_drawer], ["cog", app.open_app_settings]]

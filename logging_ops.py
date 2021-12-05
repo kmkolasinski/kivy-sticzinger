@@ -53,9 +53,8 @@ class elapsedtime:
         self.seconds = time.perf_counter() - self.start
 
 
-def profile(name: str = None, key = None):
+def profile(name: str = None, key=None):
     def _profile(method):
-
         @wraps(method)
         def _impl(self, *method_args, **method_kwargs):
 
@@ -79,11 +78,14 @@ def profile(name: str = None, key = None):
                 if len(PROFILER_STATS[stats_key]) > 100:
                     PROFILER_STATS[stats_key] = PROFILER_STATS[stats_key][1:]
 
-                PROFILER_HISTORY.append((dt.t, dt.seconds, stats_key))
+                PROFILER_HISTORY.append(
+                    (float(f"{dt.t:.3f}"), float(f"{dt.seconds:.3f}"), stats_key)
+                )
 
             return method_output
 
         return _impl
+
     return _profile
 
 
@@ -103,16 +105,18 @@ def get_profiler_metrics(reset: bool = True):
 
         metrics.append((key, avg_time, total_time, num_samples))
 
-    metrics = sorted(metrics, key = lambda x: x[1])
+    metrics = sorted(metrics, key=lambda x: x[1])
 
     metrics_dict = {"metrics": [], "history": PROFILER_HISTORY}
     for data in metrics:
-        metrics_dict["metrics"].append({
-            "key": data[0],
-            "avg_time": data[1],
-            "total_time": data[2],
-            "num_samples": data[3],
-        })
+        metrics_dict["metrics"].append(
+            {
+                "key": data[0],
+                "avg_time": f"{data[1]:.3f}",
+                "total_time": f"{data[2]:.3f}",
+                "count": data[3],
+            }
+        )
 
     if reset:
         reset_profiler()
