@@ -200,7 +200,7 @@ class PreviewPanoramaWindow(Screen):
         self.add_widget(self.accept_btn)
 
     def set_image(self, image):
-        cameras.numpy_to_image(image, self.render)
+        cameras.copy_image_to_texture(image, self.render)
 
     def enable_accept(self, toggle: bool = True):
         if toggle and hasattr(self.accept_btn, "saved_pos_hint"):

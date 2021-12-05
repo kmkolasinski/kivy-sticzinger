@@ -25,14 +25,19 @@ class KeypointsViewerScreen(ProcessingCameraScreen):
 
     def processing_fn_step(self):
         self.update_current_frame()
+
+        if self.current_frame is None:
+            return
+
+        if self.is_paused():
+            return
+
         self.detect_and_render_keypoints()
 
-    @profile
+    @profile()
     def detect_and_render_keypoints(self):
 
         image = self.current_frame
-        if image is None:
-            return
 
         conf = AppSettings().keypoints_extractor_conf
         dsize = conf.get_image_size()

@@ -86,10 +86,13 @@ class TrackerScreen(ProcessingCameraScreen):
         self.tracker = cv2.TrackerMIL_create()
         self.tracker.init(image, bbox)
 
-    @profile
+    @profile()
     def processing_fn_step(self):
         self.update_current_frame()
         if self.current_frame is None:
+            return
+
+        if self.is_paused():
             return
 
         dsize = self.processing_image_size

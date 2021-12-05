@@ -35,6 +35,11 @@ class LoggerHistoryScreen(Screen):
     def update_logger_history(self):
         self.logs_label.text = self.get_logger_history()
 
+    def play(self):
+        pass
+
+    def pause(self):
+        pass
 
 class ItemDrawer(OneLineIconListItem):
     icon = StringProperty("eye")
@@ -51,6 +56,7 @@ class DrawerList(ThemableBehavior, MDList):
                 item.text_color = self.theme_cls.text_color
                 break
         instance_item.text_color = self.theme_cls.primary_color
+
 
 
 class MainAppScreen(Screen):
@@ -148,7 +154,12 @@ class SticzingerApp(MDApp):
         self.open_screen(item, self.main_screen.left_to_right_stitcher_viewer.name)
 
     def open_app_settings(self, *args):
+        self.main_screen.screen_manager.current_screen.pause()
         self.open_settings()
+
+    def close_settings(self, *args):
+        self.main_screen.screen_manager.current_screen.play()
+        return super(SticzingerApp, self).close_settings(*args)
 
     def build_config(self, config: ConfigParser):
         settings_ops.AppSettings().build_config(config)

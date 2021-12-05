@@ -51,6 +51,13 @@
 
 
 <ContentNavigationDrawer@BoxLayout>:
+    orientation: "vertical"
+    MDLabel:
+        text: "Sticzinger"
+        halign: "center"
+        bold: True
+        size_hint: 1.0, 0.1
+
     ScrollView:
         DrawerList:
             id: md_list
@@ -103,6 +110,7 @@
     basic_stitcher_viewer: basic_stitcher_viewer
     left_to_right_stitcher_viewer: left_to_right_stitcher_viewer
 
+
     MDToolbar:
         id: toolbar
         pos_hint: {"top": 1}
@@ -145,5 +153,3 @@
             id: nav_drawer
 
             ContentNavigationDrawer:
-                screen_manager: screen_manager
-                nav_drawer: nav_drawer

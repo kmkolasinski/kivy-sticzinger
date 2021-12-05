@@ -1,5 +1,5 @@
 import numpy as np
-from kivy import Logger
+from kivy.lang import Builder
 from kivy.uix.image import Image
 from kivy.uix.scatter import Scatter
 from kivy.uix.screenmanager import Screen, ScreenManager
@@ -7,6 +7,30 @@ from kivy.uix.scrollview import ScrollView
 from kivymd.uix.button import MDFloatingActionButton
 
 import cameras
+from logging_ops import profile
+
+SCATTER_UIX = """
+# kv_start
+
+<CustomScrollView@ScrollView>:
+    do_scroll_x: False
+    do_scroll_y: False
+
+    canvas.before:
+        Color:
+            rgba: 0.5, 0.5, 0.5, 0.5
+        Rectangle:
+            size: self.size
+            pos: self.pos
+# kv_end
+"""
+
+Builder.load_string(SCATTER_UIX)
+
+
+
+class CustomScrollView(ScrollView):
+    pass
 
 
 class PreviewPanoramaScreen(Screen):
@@ -33,7 +57,7 @@ class PreviewPanoramaScreen(Screen):
 
         render = Image()
 
-        scroll_view = ScrollView(do_scroll_x=False, do_scroll_y=False)
+        scroll_view = CustomScrollView()
         scatter = Scatter(do_rotation=False)
         scatter.add_widget(render)
         scatter.scale = 5
@@ -48,7 +72,7 @@ class PreviewPanoramaScreen(Screen):
         self.accept_btn.bind(on_release=self.accept)
 
     def set_image(self, image):
-        cameras.numpy_to_image(image, self.render)
+        cameras.copy_image_to_texture(image, self.render)
 
     def enable_accept(self, toggle: bool = True):
         if toggle and hasattr(self.accept_btn, "saved_pos_hint"):
@@ -58,12 +82,12 @@ class PreviewPanoramaScreen(Screen):
             self.accept_btn.saved_pos_hint = self.accept_btn.pos_hint
             self.accept_btn.pos_hint = {"center_x": 0.0, "center_y": -0.1}
 
+    @profile()
     def cancel(self, *args):
-        Logger.info(f"Calling Cancel: {args}")
         self.cancel_callback(self.manager)
 
+    @profile()
     def accept(self, *args):
-        Logger.info(f"Calling Accept: {args}")
         self.accept_callback(self.manager)
 
     def show(

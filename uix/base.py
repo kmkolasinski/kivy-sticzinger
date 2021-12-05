@@ -1,5 +1,6 @@
+import threading
 import time
-from abc import abstractmethod, ABC
+from abc import abstractmethod
 from typing import Optional, Tuple
 
 import cv2
@@ -11,11 +12,8 @@ from kivy.uix.screenmanager import Screen
 from kivymd.uix.snackbar import Snackbar
 
 from cameras import CameraWidget
-from logging_ops import elapsedtime
+from logging_ops import elapsedtime, profile
 from settings import AppSettings
-
-import threading
-
 
 RectShape = Tuple[int, int, int, int]
 
@@ -52,13 +50,13 @@ class ProcessingScreenBase(Screen):
     def is_auto_next_enabled(self) -> bool:
         return self.conf.stitching_conf.auto_next_image.value
 
+    @profile()
     def on_enter(self, *args):
-        print("Entering screen!", self)
         self.processing_thread = StoppableThread(target=self.processing_fn_loop)
         self.processing_thread.start()
 
+    @profile()
     def on_leave(self, *args):
-        print("Leaving screen!", self)
         self.processing_thread.stop()
         self.processing_thread = None
 
@@ -97,9 +95,14 @@ class ProcessingCameraScreen(ProcessingScreenBase):
     def is_playing(self) -> bool:
         return self.camera_widget.play
 
+    def is_paused(self) -> bool:
+        return not self.is_playing()
+
+    @profile()
     def play(self):
         self.camera_widget.play = True
 
+    @profile()
     def pause(self):
         self.camera_widget.play = False
 

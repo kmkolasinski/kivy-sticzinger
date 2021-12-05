@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 from kivy.animation import Animation
+from kivy.clock import mainthread
 from kivy.lang import Builder
 from kivy.properties import ListProperty, NumericProperty
 
@@ -79,7 +80,7 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
     line_points = ListProperty([(0, 0), (0, 0)])
     line_color_alpha = NumericProperty(0.0)
 
-
+    @mainthread
     def update_line_guide(self, points: Optional[np.ndarray]):
         if points is not None:
             points = self.camera_widget.to_canvas_coords(points)
@@ -93,8 +94,8 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
         super(LeftToRightStitcherScreen, self).reset_state()
         self.update_line_guide(None)
 
-    @profile
-    def stitch(self, *args):
+    @profile()
+    def stitch(self):
 
         H, matches = self.match_current_photo_with_pano()
         if H is None:
@@ -133,7 +134,6 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
             )
             return False
 
-    @profile
     def compute_keypoints_and_matching_info(self):
 
         data = super(

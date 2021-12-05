@@ -30,6 +30,7 @@ class CameraViewerScreen(ProcessingCameraScreen):
 
     def capture_photo(self):
         Logger.info(f"Capturing photo: {self.current_frame.shape}")
+        self.show_error_snackbar("I do nothing!")
 
     def processing_fn_step(self):
         # getting frame from camera

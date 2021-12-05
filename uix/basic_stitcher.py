@@ -14,7 +14,7 @@ import keypoints_extractors as ke_ops
 import matching
 import storage
 import transform
-from logging_ops import profile, measuretime
+from logging_ops import profile, measuretime, get_profiler_metrics
 from uix.base import ProcessingCameraScreen
 from uix.preview_image import PreviewPanoramaScreen
 
@@ -90,6 +90,12 @@ class BasicStitcherScreen(ProcessingCameraScreen):
 
     @mainthread
     def reset_state(self):
+
+        if self.stitching_state == STITCHING_INITIALIZED:
+            # dumps stitching stats
+            stats = get_profiler_metrics()
+            storage.save_json(stats, f"{self.session_id}/stats.json")
+
         self.data = {}
         self.set_stitching_state(STITCHING_NONE)
         self.photo_index = 0
@@ -137,13 +143,13 @@ class BasicStitcherScreen(ProcessingCameraScreen):
             self.manager, image, None, self.cancel_preview_screen
         )
 
-    @profile
+    @profile()
     def accept_pano_proposal(self, manager: ScreenManager):
         manager.switch_to(self)
         self.accept_current_panorama()
         self.play()
 
-    @profile
+    @profile()
     def accept_current_panorama(self):
         self.data["photo"] = self.data["pano_proposal"]
         self.photo_index += 1
@@ -168,7 +174,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.disable_gui()
         Clock.schedule_once(self.take_photo)
 
-    @profile
+    @profile()
     def take_photo(self, *args):
         self.is_taking_photo = True
 
@@ -190,7 +196,7 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.enable_gui()
         self.is_taking_photo = False
 
-    @profile
+    @profile()
     def processing_fn_step(self):
         self.update_current_frame()
         if self.current_frame is None:
@@ -252,8 +258,8 @@ class BasicStitcherScreen(ProcessingCameraScreen):
 
         return True
 
-    @profile
-    def stitch(self, *args):
+    @profile()
+    def stitch(self):
 
         H, matches = self.match_current_photo_with_pano()
         if H is None:
@@ -300,10 +306,13 @@ class BasicStitcherScreen(ProcessingCameraScreen):
             )
         return H, matches
 
-    @profile
+    @profile()
     def compute_keypoints_and_matching_info(self):
 
         if self.stitching_state == STITCHING_NONE:
+            return None, None, []
+
+        if "photo" not in self.data:
             return None, None, []
 
         if "current" not in self.data:

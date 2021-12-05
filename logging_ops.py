@@ -2,6 +2,10 @@ import time
 from functools import wraps
 from typing import Any, Dict, Optional
 from kivy.logger import Logger
+from collections import defaultdict
+
+PROFILER_STATS = defaultdict(list)
+PROFILER_HISTORY = []
 
 
 class measuretime:
@@ -35,9 +39,9 @@ class measuretime:
         return self
 
     def __exit__(self, *args, **kwargs):
-        self.t = time.perf_counter() - self.t
-        if self.log and self.t > 1e-3:
-            Logger.info(f"{self.name}: took {self.t:5.3f} [s] {self.params}")
+        self.seconds = time.perf_counter() - self.t
+        if self.log and self.seconds > 1e-3:
+            Logger.info(f"{self.name}: took {self.seconds:5.3f} [s] {self.params}")
 
 
 class elapsedtime:
@@ -49,11 +53,67 @@ class elapsedtime:
         self.seconds = time.perf_counter() - self.start
 
 
-def profile(method):
-    @wraps(method)
-    def _impl(self, *method_args, **method_kwargs):
-        with measuretime(f"Calling {self.__class__.__name__}.{method.__name__}"):
-            method_output = method(self, *method_args, **method_kwargs)
-        return method_output
+def profile(name: str = None, key = None):
+    def _profile(method):
 
-    return _impl
+        @wraps(method)
+        def _impl(self, *method_args, **method_kwargs):
+
+            if name is None:
+                name_key = f"{self.__class__.__name__}.{method.__name__}"
+            else:
+                name_key = name
+
+            if key is not None:
+                key_str = key(self, *method_args, **method_kwargs)
+            else:
+                key_str = ""
+
+            with measuretime(f"Calling {name_key} {key_str}") as dt:
+                method_output = method(self, *method_args, **method_kwargs)
+
+            stats_key = f"{name_key}/{key_str}"
+
+            PROFILER_STATS[stats_key].append(dt.seconds)
+            if len(PROFILER_STATS[stats_key]) > 100:
+                PROFILER_STATS[stats_key] = PROFILER_STATS[stats_key][1:]
+
+            PROFILER_HISTORY.append((dt.seconds, stats_key))
+
+            return method_output
+
+        return _impl
+    return _profile
+
+
+def reset_profiler():
+    global PROFILER_STATS, PROFILER_HISTORY
+    PROFILER_STATS = defaultdict(list)
+    PROFILER_HISTORY = []
+
+
+def get_profiler_metrics(reset: bool = True):
+
+    metrics = []
+    for key, values in PROFILER_STATS.items():
+        total_time = sum(values)
+        avg_time = total_time / len(values)
+        num_samples = len(values)
+
+        metrics.append((key, avg_time, total_time, num_samples))
+
+    metrics = sorted(metrics, key = lambda x: x[1])
+
+    metrics_dict = defaultdict(list)
+    for data in metrics:
+        metrics_dict["metric"].append(data[0])
+        metrics_dict["avg_time"].append(data[1])
+        metrics_dict["total_time"].append(data[2])
+        metrics_dict["num_samples"].append(data[3])
+
+    metrics_dict["history"] = PROFILER_HISTORY
+
+    if reset:
+        reset_profiler()
+
+    return metrics_dict
