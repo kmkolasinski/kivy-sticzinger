@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from kivy.animation import Animation
@@ -23,7 +23,7 @@ Builder.load_string(
     
     canvas.after:
         Color:
-            rgba: 223/255, 75/255, 73/255, self.line_color_alpha
+            rgba: self.line_color
         Line:
             points: self.line_points
             width: 10. 
@@ -71,17 +71,27 @@ Builder.load_string(
 class LeftToRightStitcherScreen(BasicStitcherScreen):
 
     line_points = ListProperty([(0, 0), (0, 0)])
-    line_color_alpha = NumericProperty(0.0)
+    line_color = ListProperty([223 / 255, 75 / 255, 73 / 255, 0.0])
 
     @mainthread
-    def update_line_guide(self, points: Optional[np.ndarray]):
+    def update_line_guide(
+        self, points: Optional[np.ndarray], color: Tuple[float, float, float] = None
+    ):
+
+        if color is None:
+            color = 223 / 255, 75 / 255, 73 / 255
+
         if points is not None:
+            color = *color, 1.0
+            duration = 0.2
             points = self.camera_widget.to_canvas_coords(points)
-            anim = Animation(line_points=points, line_color_alpha=1.0, duration=0.25)
-            anim.start(self)
         else:
-            anim = Animation(line_color_alpha=0.0, duration=0.1)
-            anim.start(self)
+            color = *color, 0.0
+            points = [(0, 0), (0, 0)]
+            duration = 0.05
+
+        anim = Animation(line_points=points, line_color=color, duration=duration)
+        anim.start(self)
 
     def reset_state(self):
         super(LeftToRightStitcherScreen, self).reset_state()
@@ -133,14 +143,20 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
             LeftToRightStitcherScreen, self
         ).compute_keypoints_and_matching_info()
 
-        H = data[0]
+        min_matches = self.conf.matching_conf.min_matches.value
+        H, matches = data[0], data[1]
 
         if H is not None:
+
+            color = (1, 0, 0, 0.5)
+            if len(matches) > min_matches:
+                color = (0, 1, 0, 0.5)
+
             current_pano_image = self.data["photo"][2]
             height, width = current_pano_image.shape[:2]
             line = np.array([[width, 0], [width, height]], dtype=np.float32)
             line = transform.homography_transform(line, H)
             line = line / np.array([self.processing_image_size])
-            self.update_line_guide(line)
+            self.update_line_guide(line, color=color)
 
         return data

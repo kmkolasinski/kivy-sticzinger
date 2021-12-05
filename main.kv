@@ -118,6 +118,13 @@
     basic_stitcher_viewer: basic_stitcher_viewer
     left_to_right_stitcher_viewer: left_to_right_stitcher_viewer
 
+    MDToolbar:
+        id: toolbar
+        pos_hint: {"top": 1}
+        elevation: 8
+        title: "Sticzinger"
+        left_action_items: [["menu", app.open_nav_drawer], ["cog", app.open_app_settings]]
+
     MDNavigationLayout:
         x: toolbar.height
 
@@ -201,10 +208,3 @@
             id: nav_drawer
             ContentNavigationDrawer:
 
-    # place MDToolbar on top of the application
-    MDToolbar:
-        id: toolbar
-        pos_hint: {"top": 1}
-        elevation: 8
-        title: "Sticzinger"
-        left_action_items: [["menu", app.open_nav_drawer], ["cog", app.open_app_settings]]

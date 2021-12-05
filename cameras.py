@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 import cv2
 import kivy
@@ -30,15 +30,21 @@ class BaseCamera(Camera):
         return self.canvas_points_group
 
     @mainthread
-    def render_points(self, points: np.ndarray):
+    def render_points(self, points: np.ndarray, color: Tuple[float, float, float, float] = None):
         """
         points: [N, 2] camera image normalized (x, y)
         """
         group = self.get_or_create_canvas_points_group()
         points = self.to_canvas_coords(points)
-        for x, y in points:
+
+        if color is None:
             color = Color(223 / 255, 75 / 255, 73 / 255, 0.5)
-            group.add(color)
+        else:
+            color = Color(*color)
+
+        group.add(color)
+
+        for x, y in points:
             rect = Ellipse(pos=(x, y), size=(24, 24))
             group.add(rect)
 

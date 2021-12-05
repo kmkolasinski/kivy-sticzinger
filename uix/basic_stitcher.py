@@ -332,6 +332,11 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()
         normalized_points = self.to_normed_coords(matched_points, dsize)
-        self.camera_widget.render_points(normalized_points)
+
+        color = (1, 0, 0, 0.5)
+        if len(matches) > min_matches:
+            color = (0, 1, 0, 0.5)
+
+        self.camera_widget.render_points(normalized_points, color=color)
 
         return H, matches, normalized_points
