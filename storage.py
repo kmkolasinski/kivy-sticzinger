@@ -16,9 +16,10 @@ def get_save_path() -> Path:
             [Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE]
         )
         PATH = "/storage/emulated/0/DCIM/Sticzinger/images"
-        Path(PATH).mkdir(exist_ok=True)
     else:
         PATH = "data/DCIM/images"
+
+    Path(PATH).mkdir(exist_ok=True, parents=True)
 
     return Path(PATH)
 
