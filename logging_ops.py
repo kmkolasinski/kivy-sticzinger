@@ -40,7 +40,7 @@ class measuretime:
 
     def __exit__(self, *args, **kwargs):
         self.seconds = time.perf_counter() - self.t
-        if self.log and self.seconds > 0.001:
+        if self.log and self.seconds > 0.0001:
             Logger.info(f"{self.name}: took {self.seconds:5.3f} [s] {self.params}")
 
 

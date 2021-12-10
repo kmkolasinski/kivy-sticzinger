@@ -5,7 +5,7 @@ import sys
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
-VERSION = '1.0'
+VERSION = '1.1'
 
 FILES = list(Path('.').rglob('*.pyx')) + list(Path('.').rglob('*.pxi'))
 

@@ -13,7 +13,7 @@ package.domain = org.test
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,kv,jpg,ttf
+source.include_exts = py,kv,jpg,ttf,tflite
 
 # (list) List of inclusions using pattern matching
 source.include_patterns = assets/*
@@ -36,7 +36,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,sticzinger_ops,kivy==2.0.0,opencv==4.5.2,numpy,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow
+requirements = python3,sticzinger_ops>=1.1,kivy==2.0.0,opencv==4.5.2,numpy,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
@@ -149,7 +149,8 @@ android.permissions = CAMERA, WRITE_EXTERNAL_STORAGE
 
 # (list) List of Java files to add to the android project (can be java or a
 # directory containing the files)
-#android.add_src =
+# https://stackoverflow.com/questions/65493632/java-classes-for-pyjnius
+android.add_src = java/
 
 # (list) Android AAR archives to add (currently works only with sdl2_gradle
 # bootstrap)
@@ -157,7 +158,7 @@ android.permissions = CAMERA, WRITE_EXTERNAL_STORAGE
 
 # (list) Gradle dependencies to add (currently works only with sdl2_gradle
 # bootstrap)
-#android.gradle_dependencies =
+android.gradle_dependencies = org.tensorflow:tensorflow-lite-gpu:2.7.0, org.tensorflow:tensorflow-lite-support:0.3.1, org.tensorflow:tensorflow-lite-select-tf-ops:2.6.0
 
 # (list) add java compile options
 # this can for example be necessary when importing certain java libraries using the 'android.gradle_dependencies' option
@@ -215,12 +216,13 @@ android.permissions = CAMERA, WRITE_EXTERNAL_STORAGE
 
 # (str) Android logcat filters to use
 android.logcat_filters = *:S python:D
+#android.logcat_filters = *:S AndroidRuntime:E
 
 # (bool) Copy library instead of making a libpymodules.so
 #android.copy_libs = 1
 
 # (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
-android.arch = armeabi-v7a
+android.arch = arm64-v8a
 
 # (int) overrides automatic versionCode computation (used in build.gradle)
 # this is not the same as app version and should only be edited if you know what you're doing
@@ -246,7 +248,7 @@ p4a.local_recipes = libs/recipes
 #p4a.hook =
 
 # (str) Bootstrap to use for android builds
-# p4a.bootstrap = sdl2
+p4a.bootstrap = sdl2
 
 # (int) port number to specify an explicit --port= p4a argument (eg for bootstrap flask)
 #p4a.port =
