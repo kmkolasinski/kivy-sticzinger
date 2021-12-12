@@ -87,8 +87,9 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.is_taking_photo = False
         self.session_id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.preview_window = PreviewPanoramaScreen(name="panorama-preview-screen")
+
         # from tflite_models import TFLiteBFMatcher
-        # self.tflite_matcher = TFLiteBFMatcher('model-dq.tflite', num_threads=2)
+        # self.tflite_matcher = TFLiteBFMatcher('model-dq.tflite', num_threads=1)
 
     @mainthread
     def reset_state(self):

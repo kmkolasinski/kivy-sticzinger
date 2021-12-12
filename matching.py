@@ -4,9 +4,9 @@ import cv2
 
 def match_images(
     kp1,
-    des1,
+    des1: np.ndarray,
     kp2,
-    des2,
+    des2: np.ndarray,
     bf_matcher_cross_check: bool = True,
     bf_matcher_norm: str = "NORM_L2",
     lowe: float = 0.7,
@@ -18,6 +18,10 @@ def match_images(
     min_matches: int = 10,
     homography_refine: bool = True,
 ):
+
+    if des1 is None or des2 is None:
+        # this is possible since cv can return None
+        return None, []
 
     if matcher_type == "brute_force":
         K = 1 if bf_matcher_cross_check else 2
@@ -39,6 +43,9 @@ def match_images(
 
         des1 = des1.astype(np.float32)
         des2 = des2.astype(np.float32)
+
+    if des1.shape[0] == 0 or des2.shape[0] == 0:
+        return None, []
 
     matches = bf.knnMatch(des1, des2, k=K)
 

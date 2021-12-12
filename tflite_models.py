@@ -266,37 +266,32 @@ class TFLiteBFMatcher:
         predictions = self.model.predict(X_str, Y_str)
         predictions = np.reshape(np.array(predictions), self.model.getOutputShape())
         predictions = predictions.astype(np.float32)
-        with measuretime("cython-postprocessing"):
-            H, matches = postprocess_and_refine_predictions(
-                predictions, kp1, kp2, homography_refine=self.homography_refine
+
+        mask = predictions[:, 2].astype(np.int32) == 1
+        matches = predictions[mask][:, :2].astype(np.int32)
+
+        matches = [
+            cv2.DMatch(_imgIdx=0, _queryIdx=q, _trainIdx=t, _distance=0)
+            for q, t in matches
+        ]
+
+        H = None
+        if self.homography_refine:
+            src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(
+                -1, 1, 2
             )
-
-        with measuretime("py-postprocessing"):
-            mask = predictions[:, 2].astype(np.int32) == 1
-            matches = predictions[mask][:, :2].astype(np.int32)
-
+            dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(
+                -1, 1, 2
+            )
+            H, mask = cv2.findHomography(
+                src_pts, dst_pts, cv2.RANSAC, ransack_threshold, confidence=0.99
+            )
+            matches_mask = mask.ravel()
             matches = [
-                cv2.DMatch(_imgIdx=0, _queryIdx=q, _trainIdx=t, _distance=0)
-                for q, t in matches
+                match
+                for match, mask_val in zip(matches, matches_mask)
+                if mask_val == 1
             ]
-
-            H = None
-            if self.homography_refine:
-                src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(
-                    -1, 1, 2
-                )
-                dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(
-                    -1, 1, 2
-                )
-                H, mask = cv2.findHomography(
-                    src_pts, dst_pts, cv2.RANSAC, ransack_threshold, confidence=0.99
-                )
-                matches_mask = mask.ravel()
-                matches = [
-                    match
-                    for match, mask_val in zip(matches, matches_mask)
-                    if mask_val == 1
-                ]
 
         return H, matches
 

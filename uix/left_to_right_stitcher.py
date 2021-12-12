@@ -143,7 +143,7 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
             LeftToRightStitcherScreen, self
         ).compute_keypoints_and_matching_info()
 
-        # NOTE: this code seems to slow down app a bit, but visible
+        # # NOTE: this code seems to slow down app a bit, but visible
         # min_matches = self.conf.matching_conf.min_matches.value
         # H, matches = data[0], data[1]
         #
