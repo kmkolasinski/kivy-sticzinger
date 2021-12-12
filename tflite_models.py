@@ -15,7 +15,9 @@ if platform == "android":
     Tensor = autoclass("org.tensorflow.lite.Tensor")
     DataType = autoclass("org.tensorflow.lite.DataType")
     TensorBuffer = autoclass("org.tensorflow.lite.support.tensorbuffer.TensorBuffer")
-    TensorBufferFloat = autoclass("org.tensorflow.lite.support.tensorbuffer.TensorBufferFloat")
+    TensorBufferFloat = autoclass(
+        "org.tensorflow.lite.support.tensorbuffer.TensorBufferFloat"
+    )
 
     ByteBuffer = autoclass("java.nio.ByteBuffer")
     FloatBuffer = autoclass("java.nio.FloatBuffer")
@@ -27,12 +29,12 @@ if platform == "android":
 
     TestClass = autoclass("org.test.TestClass")
 
+
     class TensorFlowModel:
         def load(self, model_filename, num_threads=None):
             model = File(model_filename)
 
             options = InterpreterOptions()
-
 
             # JVM exception occurred: Internal error: Failed to apply delegate: Attempting to use a delegate that only
             # supports static-sized tensors with a graph that has dynamic-sized tensors (tensor#21 is a
@@ -62,8 +64,12 @@ if platform == "android":
             self.output_type = self.interpreter.getOutputTensor(0).dataType()
 
             self.output_shape = [self.input_shape[0], 3]
-            self.output_buffer = TensorBuffer.createFixedSize(self.output_shape, self.output_type)
-            self.input_buffer = TensorBufferFloat.createFixedSize(self.input_shape, self.input_type)
+            self.output_buffer = TensorBuffer.createFixedSize(
+                self.output_shape, self.output_type
+            )
+            self.input_buffer = TensorBufferFloat.createFixedSize(
+                self.input_shape, self.input_type
+            )
 
         def get_input_shape(self):
             return self.input_shape
@@ -96,6 +102,7 @@ if platform == "android":
 else:
     import tensorflow as tf
 
+
     class TensorFlowModel:
         def load(self, model_filename, num_threads=None):
             self.interpreter = tf.lite.Interpreter(
@@ -122,8 +129,7 @@ else:
             )
 
 
-class NpBFMatcher():
-
+class NpBFMatcher:
     def distance_matrix(self, X, Y):
         sqnorm1 = np.sum(np.square(X), 1, keepdims=True)
         sqnorm2 = np.sum(np.square(Y), 1, keepdims=True)
@@ -180,8 +186,9 @@ def benchmark(method, name, steps=10, warmup=1, **kwargs):
 
 def get_tf_matcher():
     import os
+
     model = TensorFlowModel()
-    model.load(os.path.join(os.getcwd(), 'model.tflite'))
+    model.load(os.path.join(os.getcwd(), "model.tflite"))
 
     def tf_match(X, Y):
         values = model.pred(X)
@@ -200,13 +207,13 @@ def get_np_matcher():
     return tf_match
 
 
-
 def get_cv_matcher():
     import cv2
+
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
 
     def cv_match(X, Y):
-        matches = bf.knnMatch(X, X, k=1)
+        matches = bf.knnMatch(X, Y, k=1)
         matches_pairs = []
         distances = []
         for mm in matches:
@@ -218,3 +225,125 @@ def get_cv_matcher():
         return matches_pairs, distances
 
     return cv_match
+
+
+import os
+from sticzinger_ops import uint8_array2d_to_ascii, postprocess_and_refine_predictions
+import numpy as np
+import cv2
+from matching import match_images
+
+
+class TFLiteBFMatcher:
+    def __init__(self, path, num_threads=1, xnn=False, homography_refine=True):
+        tflite_model = TestClass()
+        path = os.path.join(os.getcwd(), path)
+        tflite_model.loadModel(path, num_threads, xnn)
+
+        self.model = tflite_model
+        self.homography_refine = homography_refine
+
+        self.X_str_cache = None
+        self.X_id = None
+
+    def match(self, kp1, des1, kp2, des2, ransack_threshold: float = 10):
+
+        X_id = id(des1)
+        if X_id != self.X_id:
+            # sift returns values from 0 - 255 we support only values from 0 - 127
+            X = des1.astype(np.uint8) // 2
+            X_str = uint8_array2d_to_ascii(X)
+            self.X_id = X_id
+            self.X_str_cache = X_str
+        else:
+            X = des1
+            X_str = self.X_str_cache
+
+        Y = des2.astype(np.uint8) // 2
+        Y_str = uint8_array2d_to_ascii(Y)
+
+        self.model.resizeInputs(X.shape, Y.shape)
+        predictions = self.model.predict(X_str, Y_str)
+        predictions = np.reshape(np.array(predictions), self.model.getOutputShape())
+        predictions = predictions.astype(np.float32)
+        with measuretime("cython-postprocessing"):
+            H, matches = postprocess_and_refine_predictions(
+                predictions, kp1, kp2, homography_refine=self.homography_refine
+            )
+
+        with measuretime("py-postprocessing"):
+            mask = predictions[:, 2].astype(np.int32) == 1
+            matches = predictions[mask][:, :2].astype(np.int32)
+
+            matches = [
+                cv2.DMatch(_imgIdx=0, _queryIdx=q, _trainIdx=t, _distance=0)
+                for q, t in matches
+            ]
+
+            H = None
+            if self.homography_refine:
+                src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(
+                    -1, 1, 2
+                )
+                dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(
+                    -1, 1, 2
+                )
+                H, mask = cv2.findHomography(
+                    src_pts, dst_pts, cv2.RANSAC, ransack_threshold, confidence=0.99
+                )
+                matches_mask = mask.ravel()
+                matches = [
+                    match
+                    for match, mask_val in zip(matches, matches_mask)
+                    if mask_val == 1
+                ]
+
+        return H, matches
+
+
+class CvBFMatcher:
+    def __init__(self, homography_refine=True):
+        self.homography_refine = homography_refine
+
+    def match(self, kp1, des1, kp2, des2):
+        return match_images(
+            kp1,
+            des1,
+            kp2,
+            des2,
+            bf_matcher_cross_check=True,
+            bf_matcher_norm="NORM_L2",
+            ransack_threshold=10.0,
+            matcher_type="brute_force",
+            homography_refine=self.homography_refine,
+        )
+
+
+def benchmark_tflite_model(name, matcher, steps: int = 5):
+    with measuretime(name):
+        X = np.random.randint(0, 256, [1024, 128]).astype(np.float32)
+        for i in range(steps):
+            Y = np.random.randint(0, 256, [2000 + i, 128]).astype(np.float32)
+            _, matches = matcher.match([], X, [], Y)
+
+
+def benchmark_scenarios():
+    # import requests
+    # with open('model.tflite', "wb") as f:
+    #     data = requests.get("http://0.0.0.0:3333/model.tflite").content
+    #     f.write(data)
+
+    matcher = TFLiteBFMatcher("model.tflite", homography_refine=False)
+    benchmark_tflite_model("tf-matcher", matcher)
+
+    matcher = TFLiteBFMatcher("model-dq.tflite", homography_refine=False)
+    benchmark_tflite_model("tf-matcher-dq", matcher)
+
+    matcher = TFLiteBFMatcher("model-dq.tflite", homography_refine=False, num_threads=2)
+    benchmark_tflite_model("tf-matcher-dq 2 threard", matcher)
+
+    matcher = TFLiteBFMatcher("model-fq.tflite", homography_refine=False)
+    benchmark_tflite_model("tf-matcher-fq", matcher)
+
+    matcher = CvBFMatcher(homography_refine=False)
+    benchmark_tflite_model("cv-matcher", matcher)

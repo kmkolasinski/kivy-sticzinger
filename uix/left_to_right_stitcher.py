@@ -75,7 +75,7 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
 
     @mainthread
     def update_line_guide(
-        self, points: Optional[np.ndarray], color: Tuple[float, float, float] = None
+        self, points: Optional[np.ndarray], color: Tuple[float, float, float, float] = None
     ):
 
         if color is None:
@@ -88,7 +88,7 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
         else:
             color = *color, 0.0
             points = [(0, 0), (0, 0)]
-            duration = 0.05
+            duration = 0.1
 
         anim = Animation(line_points=points, line_color=color, duration=duration)
         anim.start(self)
@@ -143,20 +143,21 @@ class LeftToRightStitcherScreen(BasicStitcherScreen):
             LeftToRightStitcherScreen, self
         ).compute_keypoints_and_matching_info()
 
-        min_matches = self.conf.matching_conf.min_matches.value
-        H, matches = data[0], data[1]
-
-        if H is not None:
-
-            color = (1, 0, 0, 0.5)
-            if len(matches) > min_matches:
-                color = (0, 1, 0, 0.5)
-
-            current_pano_image = self.data["photo"][2]
-            height, width = current_pano_image.shape[:2]
-            line = np.array([[width, 0], [width, height]], dtype=np.float32)
-            line = transform.homography_transform(line, H)
-            line = line / np.array([self.processing_image_size])
-            self.update_line_guide(line, color=color)
+        # NOTE: this code seems to slow down app a bit, but visible
+        # min_matches = self.conf.matching_conf.min_matches.value
+        # H, matches = data[0], data[1]
+        #
+        # if H is not None:
+        #
+        #     color = (1, 0, 0, 0.5)
+        #     if len(matches) > min_matches:
+        #         color = (0, 1, 0, 0.5)
+        #
+        #     current_pano_image = self.data["photo"][2]
+        #     height, width = current_pano_image.shape[:2]
+        #     line = np.array([[width, 0], [width, height]], dtype=np.float32)
+        #     line = transform.homography_transform(line, H)
+        #     line = line / np.array([self.processing_image_size])
+        #     self.update_line_guide(line, color=color)
 
         return data

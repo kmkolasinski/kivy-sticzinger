@@ -1,11 +1,14 @@
 import time
 from functools import wraps
 from typing import Any, Dict, Optional
+
+import numpy as np
 from kivy.logger import Logger
 from collections import defaultdict
 
 PROFILER_STATS = defaultdict(list)
 PROFILER_HISTORY = []
+AVERAGES = defaultdict(list)
 
 
 class measuretime:
@@ -15,6 +18,7 @@ class measuretime:
             func1()
             func2()
     """
+
 
     def __init__(
         self, name: str, extra: Optional[Dict[str, Any]] = None, log: bool = True
@@ -40,8 +44,12 @@ class measuretime:
 
     def __exit__(self, *args, **kwargs):
         self.seconds = time.perf_counter() - self.t
-        if self.log and self.seconds > 0.0001:
-            Logger.info(f"{self.name}: took {self.seconds:5.3f} [s] {self.params}")
+        if self.log and self.seconds > 0.001:
+            AVERAGES[self.name].append(self.seconds)
+            if len(AVERAGES[self.name]) > 100:
+                AVERAGES[self.name] = AVERAGES[self.name][-100:]
+            mean = np.mean(AVERAGES[self.name])
+            Logger.info(f"{self.name}: took {self.seconds:5.3f} [s] (averaged {mean:5.3f} [s]) {self.params}")
 
 
 class elapsedtime:

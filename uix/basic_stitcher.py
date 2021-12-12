@@ -87,6 +87,8 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         self.is_taking_photo = False
         self.session_id = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
         self.preview_window = PreviewPanoramaScreen(name="panorama-preview-screen")
+        # from tflite_models import TFLiteBFMatcher
+        # self.tflite_matcher = TFLiteBFMatcher('model-dq.tflite', num_threads=2)
 
     @mainthread
     def reset_state(self):
@@ -235,8 +237,8 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         else:
             dsize = None
 
-        extractor_name = self.conf.keypoints_extractor_conf.keypoint_detector.value
-        extractor = ke_ops.create_keypoint_extractor(extractor_name)
+        kwargs = self.conf.keypoints_extractor_conf.get_keypoint_detector_kwargs()
+        extractor = ke_ops.create_keypoint_extractor(**kwargs)
 
         xmin, ymin = 0, 0
         if mask is not None:
@@ -322,12 +324,17 @@ class BasicStitcherScreen(ProcessingCameraScreen):
         kp1, des1 = self.data["photo"][:2]
         kp2, des2 = self.data["current"][:2]
 
-        H, matches = matching.match_images(
-            kp1, des1, kp2, des2, **self.conf.matching_configuration
-        )
+        matcher_type = self.conf.matching_conf.matcher_type.value
+        with measuretime(f"Matching {matcher_type}"):
+            if matcher_type == "tflite":
+                H, matches = self.tflite_matcher.match(kp1, des1, kp2, des2)
+            else:
+                H, matches = matching.match_images(
+                    kp1, des1, kp2, des2, **self.conf.matching_configuration
+                )
 
         min_matches = self.conf.matching_conf.min_matches.value
-        self.profile_label.text = f"FPS: {self.processing_fps:.1f}\nMatches: {len(matches)} / {min_matches}"
+        self.profile_label.text = f"FPS: {self.processing_fps:.1f}\nMatches: {len(matches)} / {min_matches}\nNKP1={len(kp1)}\nNKP2={len(kp2)}"
 
         _, matched_points = matching.select_matching_points(kp1, kp2, matches)
         dsize = self.conf.keypoints_extractor_conf.get_image_size()

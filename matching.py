@@ -16,6 +16,7 @@ def match_images(
     flann_index: int = 1,
     flann_checks: int = 50,
     min_matches: int = 10,
+    homography_refine: bool = True,
 ):
 
     if matcher_type == "brute_force":
@@ -52,13 +53,15 @@ def match_images(
     if len(good) < min_matches:
         return None, []
 
-    src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+    H = None
+    if homography_refine:
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
-    H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, ransack_threshold)
-    matchesMask = mask.ravel().tolist()
+        H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, ransack_threshold)
+        matchesMask = mask.ravel().tolist()
 
-    matches = [p for p, m in zip(good, matchesMask) if m == 1]
+        matches = [p for p, m in zip(good, matchesMask) if m == 1]
 
     return H, matches
 

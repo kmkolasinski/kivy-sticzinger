@@ -8,7 +8,7 @@ class SticzingerOpsRecipe(IncludedFilesBehaviour, CythonRecipe):
     version = '1.0'
     name = 'sticzinger_ops'
     site_package_name = 'sticzinger_ops'
-    depends = ['setuptools']
+    depends = ["numpy"]
     call_hostpython_via_targetpython = False
     install_in_hostpython = True
 

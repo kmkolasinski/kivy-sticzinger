@@ -1,6 +1,10 @@
 package org.test;
 import java.lang.String;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.io.File;
 import org.tensorflow.lite.Interpreter;
@@ -16,28 +20,35 @@ import java.nio.FloatBuffer;
 public class TestClass {
     public Interpreter interpreter;
     public TensorBuffer outputBufferTensor;
-    public TensorBuffer inputTensorBuffer;
+    public TensorBuffer inputX;
+    public TensorBuffer inputY;
 
-    public int[] getInputShape() {
-        return interpreter.getInputTensor(0).shape();
+    public int[] getInputShape(int index) {
+        return interpreter.getInputTensor(index).shape();
     }
 
-    public DataType getInputDType() {
+    public DataType getInputDType(int index) {
         return interpreter.getInputTensor(0).dataType();
     }
 
     public int[] getOutputShape() {
-        return interpreter.getOutputTensor(0).shape();
+        // tflite incorrectly estimate the output shape when resizing
+        int numCols = interpreter.getOutputTensor(0).shape()[1];
+        int numRows = getInputShape(0)[0];
+        int[] shape = {numRows, numCols};
+        return shape;
     }
 
     public DataType getOutputDType() {
         return interpreter.getOutputTensor(0).dataType();
     }
 
-    public boolean loadModel(String path){
+    public boolean loadModel(String path, int n, boolean opt){
 
         Interpreter.Options options = new Options();
-        options.setNumThreads(1);
+        options.setNumThreads(n);
+        options.setUseXNNPACK(opt);
+
         try {
             File model = new File(path);
             interpreter = new Interpreter(model, options);
@@ -46,20 +57,56 @@ public class TestClass {
         }
 
         interpreter.allocateTensors();
-        outputBufferTensor = TensorBuffer.createFixedSize(getOutputShape(), getOutputDType());
-        inputTensorBuffer = TensorBufferFloat.createFixedSize(getInputShape(), getInputDType());
 
         return true;
     }
 
-    public void predict(String array) {
+    public float[] predict(String X, String Y) {
 
-        // System.out.println("Predicting array with N elements: " + array.length);
+        byte[] byteArrayX = X.getBytes(Charset.forName("ASCII"));
+        ByteBuffer bufferX = ByteBuffer.wrap(byteArrayX);
 
-       // inputTensorBuffer.loadArray(array);
+        byte[] byteArrayY = Y.getBytes(Charset.forName("ASCII"));
+        ByteBuffer bufferY = ByteBuffer.wrap(byteArrayY);
 
-       // interpreter.run(input, self.output_buffer.getBuffer().rewind())
+        Object[] inputs = {bufferX, bufferY};
 
+        Map<Integer, Object> outputs = new HashMap<>();
+        outputs.put(0, outputBufferTensor.getBuffer().rewind());
+
+        interpreter.runForMultipleInputsOutputs(inputs, outputs);
+
+        return outputBufferTensor.getFloatArray();
+    }
+
+    public void resizeInputs(int[] shapeX, int[] shapeY) {
+
+        int[] inputShapeX = getInputShape(0);
+        int[] inputShapeY = getInputShape(1);
+
+        boolean xChanged = !Arrays.equals(shapeX, inputShapeX);
+        boolean yChanged = !Arrays.equals(shapeY, inputShapeY);
+
+        if (xChanged ) {
+            interpreter.resizeInput(0, shapeX);
+        }
+
+        if (yChanged) {
+            interpreter.resizeInput(1, shapeY);
+        }
+
+        if (xChanged || yChanged) {
+            interpreter.allocateTensors();
+        }
+
+        if (xChanged ) {
+            outputBufferTensor = TensorBuffer.createFixedSize(getOutputShape(), getOutputDType());
+            inputX = TensorBufferFloat.createFixedSize(getInputShape(0), getInputDType(0));
+        }
+
+        if (yChanged) {
+            inputY = TensorBufferFloat.createFixedSize(getInputShape(1), getInputDType(1));
+        }
     }
 
 }

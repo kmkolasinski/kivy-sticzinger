@@ -41,8 +41,9 @@ class KeypointsViewerScreen(ProcessingCameraScreen):
 
         conf = AppSettings().keypoints_extractor_conf
         dsize = conf.get_image_size()
-        extractor_name = conf.keypoint_detector.value
-        extractor = ke_ops.create_keypoint_extractor(extractor_name)
+
+        kwargs = conf.keypoints_extractor_conf.get_keypoint_detector_kwargs()
+        extractor = ke_ops.create_keypoint_extractor(**kwargs)
 
         points = ke_ops.detect_keypoints(image, dsize, extractor)
         self.camera_widget.render_points(points)

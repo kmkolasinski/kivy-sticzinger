@@ -135,16 +135,29 @@ class KeypointsExtractorConf(PropertiesGroup):
         "OpenCV keypoint detector type. Affects the speed of application",
         options=[
             "SIFT",
-            "BRISK",
-            "KAZE",
-            "KAZE_EXTENDED",
             "ORB_FAST",
             "ORB_HARRIS",
             "ORB_FAST_512",
             "ORB_FAST_1024",
             "ORB_HARRIS_512",
             "ORB_HARRIS_1024",
+            "FAST_SIFT",
+            "FAST_SURF",
         ],
+    )
+
+    fast_threshold = OptionsProperty(
+        10,
+        "FAST threshold",
+        "FAST keypoint detector threshold value",
+        options=["10", "15", "20", "25", "30"],
+    )
+
+    fast_max_keypoints = OptionsProperty(
+        1024,
+        "FAST maximum keypoints",
+        "FAST keypoint detector num keypoints to keep",
+        options=["500", "1000", "1500", "2000"],
     )
 
     image_size = OptionsProperty(
@@ -158,6 +171,13 @@ class KeypointsExtractorConf(PropertiesGroup):
         size = self.image_size.value
         return size, size
 
+    def get_keypoint_detector_kwargs(self):
+        return {
+            "name": self.keypoint_detector.value,
+            "fast_max_keypoints": self.fast_max_keypoints.value,
+            "fast_threshold": self.fast_threshold.value,
+        }
+
 
 class ImageMatchingConf(PropertiesGroup):
     name = TitleProperty("Image Matching Settings")
@@ -168,7 +188,7 @@ class ImageMatchingConf(PropertiesGroup):
         "brute_force",
         "Matcher Type",
         "OpenCV matcher type",
-        options=["brute_force", "flann"],
+        options=["brute_force", "flann", "tflite"],
     )
     min_matches = OptionsProperty(
         40,
@@ -227,7 +247,7 @@ class AppSettings(PropertiesGroup):
         cross_check = self.matching_conf.cross_check.value
         detector_type = self.keypoints_extractor_conf.keypoint_detector.value.upper()
 
-        if "SIFT" in detector_type or "KAZE" in detector_type:
+        if "SIFT" in detector_type or "KAZE" in detector_type or "SURF" in detector_type:
             bf_matcher_norm = "NORM_L2"
         else:
             bf_matcher_norm = "NORM_HAMMING"

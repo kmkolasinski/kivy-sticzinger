@@ -4,13 +4,49 @@ import cv2
 import numpy as np
 
 
-class CVWrapper:
+class CVExtractor:
+    def extract(self, image, mask: Optional[np.ndarray] = None):
+       pass
+
+
+class CVWrapper(CVExtractor):
     def __init__(self, fe):
         self.fe = fe
 
     def extract(self, image, mask: Optional[np.ndarray] = None):
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         return self.fe.detectAndCompute(gray, mask=mask)
+
+
+class FASTSIFT(CVExtractor):
+    def __init__(self, threshold: int = 10, max_features: int = 1024):
+        self.fast = cv2.FastFeatureDetector_create(
+            threshold=threshold,
+            nonmaxSuppression=True,
+            type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16,
+        )
+        self.fe = cv2.SIFT_create(nfeatures=1024)
+        self.max_features = max_features
+
+    def extract(self, image, mask: Optional[np.ndarray] = None):
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        keypoints = self.fast.detect(gray, mask)
+
+        keypoints = sorted(keypoints, key=lambda p: p.response, reverse=True)
+        keypoints = keypoints[:self.max_features]
+        keypoints, descriptors = self.fe.compute(gray, keypoints)
+        return keypoints, descriptors
+
+
+class FASTSURF(FASTSIFT):
+    def __init__(self, threshold: int = 10, max_features: int = 1024):
+        self.fast = cv2.FastFeatureDetector_create(
+            threshold=threshold,
+            nonmaxSuppression=True,
+            type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16,
+        )
+        self.fe = cv2.xfeatures2d.SURF_create()
+        self.max_features = max_features
 
 
 def extract_keypoints(
@@ -25,7 +61,7 @@ def extract_keypoints(
     return keypoints, des
 
 
-def create_keypoint_extractor(name: str) -> CVWrapper:
+def create_keypoint_extractor(name: str, fast_max_keypoints: int, fast_threshold: int) -> CVExtractor:
     value = name.upper()
 
     if value == "SIFT":
@@ -48,6 +84,10 @@ def create_keypoint_extractor(name: str) -> CVWrapper:
         fe = cv2.KAZE_create()
     elif value == "AKAZE":
         fe = cv2.AKAZE_create()
+    elif value == "FAST_SIFT":
+        return FASTSIFT(fast_threshold, fast_max_keypoints)
+    elif value == "FAST_SURF":
+        return FASTSURF(fast_threshold, fast_max_keypoints)
     else:
         raise NotImplementedError(value)
 

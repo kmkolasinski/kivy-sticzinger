@@ -103,42 +103,10 @@ class SticzingerApp(MDApp):
 
         self.main_screen = MainAppScreen()
         self.main_screen.nav_drawer.bind(state=self.nav_drawer_state_change)
-        # self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
+        self.main_screen.screen_manager.current = "left-to-right-stitcher-viewer"
 
-        import tflite_models as tfm
-        import  os
-
-        tflite_model = tfm.TestClass()
-        path = os.path.join(os.getcwd(), 'model.tflite')
-        print(tflite_model.loadModel(path))
-        print(tflite_model.getInputShape())
-        print(tflite_model.getOutputShape())
-
-        X, Y = tfm.generate_random_XY()
-        X_bytes = X.tobytes()
-        with measuretime("tobytes"):
-            tfm.ByteBuffer.wrap(X_bytes)
-
-        X_values = X.ravel()
-        print(tflite_model.predict)
-        print(type(tflite_model.predict))
-
-        array = [1, 2] * (512 * 128)
-
-        from sticzinger_ops import numbers_to_str
-        s = numbers_to_str(X.ravel())
-
-        with measuretime("predict"):
-            X_str = "".join([chr(x) for x in array])
-            tflite_model.predict(X_str)
-
-        # tf_matcher_fn = tfm.get_tf_matcher()
-        # cv_matcher_fn = tfm.get_cv_matcher()
-        # np_matcher_fn = tfm.get_np_matcher()
-        #
-        # tfm.benchmark(cv_matcher_fn, "OpenCV")
-        # tfm.benchmark(tf_matcher_fn, "TFLite")
-        # tfm.benchmark(np_matcher_fn, "Numpy ")
+        # import tflite_models as tfm
+        # tfm.benchmark_scenarios())
 
         return self.main_screen
 
