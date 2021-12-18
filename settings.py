@@ -188,7 +188,7 @@ class ImageMatchingConf(PropertiesGroup):
         "brute_force",
         "Matcher Type",
         "OpenCV matcher type",
-        options=["brute_force", "flann", "tflite"],
+        options=["brute_force", "flann", "tflite", "cython_brute_force"],
     )
     min_matches = OptionsProperty(
         40,

@@ -31,6 +31,8 @@ setup(
     install_requires=INSTALL_REQUIRES,
     setup_requires=SETUP_REQUIRES,
     include_dirs=[numpy.get_include()],
-    ext_modules=[Extension("sticzinger_ops", [str(fn) for fn in FILES])],
+    ext_modules=[Extension(
+        "sticzinger_ops", [str(fn) for fn in FILES]),
+    ],
     extras_require={"dev": [], "ci": []},
 )

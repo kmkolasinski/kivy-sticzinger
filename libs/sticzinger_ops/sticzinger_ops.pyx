@@ -1,9 +1,8 @@
 import numpy as np
 cimport numpy as np
 import cv2
-from libcpp cimport bool
-
 cimport cython
+from libc.stdlib cimport malloc, free
 
 # It's necessary to call "import_array" if you use any part of the
 # numpy PyArray_* API. From Cython 3, accessing attributes like
@@ -23,35 +22,6 @@ ctypedef np.uint8_t DTYPE_t
 ctypedef np.float32_t Float32_t
 ctypedef np.float64_t Float64_t
 ctypedef np.int32_t Int32_t
-
-def fib(int n):
-    """Print the Fibonacci series up to n."""
-    cdef int a = 0
-    cdef int b = 1
-
-    while b < n:
-        print(b)
-        a, b = b, a + b
-
-    print()
-
-
-
-def uint8_array2d_to_ascii_v1(np.ndarray[DTYPE_t, ndim=2] array):
-    return "".join([chr(x) for x in array.ravel()])
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def uint8_array2d_to_ascii_v2(DTYPE_t[:, :] array):
-    cdef int i, j
-    cdef list val = []
-
-    for i in range(array.shape[0]):
-        for j in range(array.shape[1]):
-            val.append(chr(array[i, j]))
-
-    return ''.join(val)
 
 
 def uint8_array2d_to_ascii(np.ndarray[DTYPE_t, ndim=2] array):
@@ -96,3 +66,151 @@ cpdef postprocess_and_refine_predictions(
         ]
 
     return H, cv_matches
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef euclidean_distance_matrix(float[:, :] X, float[:, :] Y):
+    cdef float[:, :] sqnorm1 = np.sum(np.square(X), 1, keepdims=True)
+    cdef float[:, :] sqnorm2 = np.sum(np.square(Y), 1, keepdims=True)
+    cdef float[:, :] innerprod = 2 * np.dot(X, Y.T)
+    return sqnorm1 + np.transpose(sqnorm2) - innerprod
+
+
+ctypedef int CBLAS_INDEX
+
+
+cdef extern from 'cblas.h':
+
+    ctypedef enum CBLAS_TRANSPOSE:
+        CblasNoTrans
+        CblasTrans
+        CblasConjTrans
+
+    ctypedef enum CBLAS_LAYOUT:
+        CblasRowMajor
+        CblasColMajor
+
+    ctypedef enum CBLAS_UPLO:
+        CblasUpper
+        CblasLower
+
+
+    void lib_sgemm "cblas_sgemm"(CBLAS_LAYOUT Order, CBLAS_TRANSPOSE TransA,
+                                 CBLAS_TRANSPOSE TransB, int M, int N, int K,
+                                 float  alpha, float  *A, int lda, float  *B, int ldb,
+                                 float  beta, float  *C, int ldc) nogil
+
+
+
+
+cdef extern from "fast_ops.h":
+    void sum_square_cols(float* X, float *y, int num_rows, int num_cols)
+    void sum_row_and_col_vectors(float * row, float *col, float* X, int num_rows, int num_cols)
+    void argmin_row(float * X, int *y, int num_rows, int num_cols)
+    void argmin_col(float * X, int *y, int num_rows, int num_cols)
+    float vector_sq_mean(float *X, int n) nogil
+
+
+cpdef void sgemm5v3(float alpha, float[:, ::1] A, float[:, ::1] B,
+                      float beta, float[:, ::1] C):
+
+    """
+     C = α A B^T + β C
+    """
+
+
+    cdef float* A_ptr = &A[0, 0]
+    cdef float* B_ptr = &B[0, 0]
+    cdef float* C_ptr = &C[0, 0]
+
+    lib_sgemm(CblasRowMajor,CblasNoTrans,CblasTrans,
+               C.shape[0], C.shape[1],
+               A.shape[1], alpha, A_ptr, A.shape[1], B_ptr,
+               B.shape[1], beta, C_ptr, C.shape[1])
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef void euclidean_dist_matrix(float[:, ::1] A, float[:, ::1] B, float[:, ::1] C):
+
+
+    cdef float* A_ptr = &A[0, 0]
+    cdef float* B_ptr = &B[0, 0]
+    cdef float* C_ptr = &C[0, 0]
+
+    cdef int a_num_rows = A.shape[0]
+    cdef int a_num_cols = A.shape[1]
+    cdef int b_num_rows = B.shape[0]
+    cdef int b_num_cols = B.shape[1]
+
+    cdef float *a_sq = <float*> malloc(a_num_rows * sizeof(float))
+    cdef float *b_sq = <float*> malloc(b_num_rows * sizeof(float))
+
+    try:
+        sum_square_cols(A_ptr, a_sq, a_num_rows, a_num_cols)
+        sum_square_cols(B_ptr, b_sq, b_num_rows, b_num_cols)
+        sum_row_and_col_vectors(a_sq, b_sq, C_ptr, a_num_rows, b_num_rows)
+        sgemm5v3(-2, A, B, 1, C)
+
+    finally:
+        free(a_sq)
+        free(b_sq)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef void argmin_match(float[:, ::1] X, int[::1] row_indices, int[::1] col_indices):
+
+    cdef float* X_ptr = &X[0, 0]
+    cdef:
+        int num_rows = row_indices.shape[0]
+        int num_cols = col_indices.shape[0]
+
+
+    # argmin_row_col(X_ptr, &row_indices[0], &col_indices[0], num_rows, num_cols)
+
+    argmin_col(X_ptr, &row_indices[0], num_rows, num_cols)
+    argmin_row(X_ptr, &col_indices[0], num_rows, num_cols)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef void column_argmin(float[:, ::1] X, int[::1] row_indices):
+
+    cdef:
+        float * X_ptr = &X[0, 0]
+        int num_rows = X.shape[0]
+        int num_cols = X.shape[1]
+
+    argmin_col(X_ptr, &row_indices[0], num_rows, num_cols)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef void mean_square_cols(float[:, ::1] A, float[::1] y):
+
+
+    cdef float* A_ptr = &A[0, 0]
+
+    cdef int a_num_rows = A.shape[0]
+    cdef int a_num_cols = A.shape[1]
+
+    for i in range(a_num_rows):
+        y[i] = vector_sq_mean(&A[i, 0], a_num_cols)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef bf_cross_check_matcher(float[:, ::1] A, float[:, ::1] B):
+
+    cdef:
+        int num_rows = A.shape[0]
+        int num_cols = B.shape[0]
+
+    cdef float[:,::1] C = np.zeros((num_rows, num_cols), dtype = np.float32)
+    cdef int[::1] row_indices = np.zeros((num_rows,), dtype = np.int32)
+    cdef int[::1] col_indices = np.zeros((num_cols,), dtype = np.int32)
+
+    euclidean_dist_matrix(A, B, C)
+    argmin_match(C, row_indices, col_indices)
+    return np.array(row_indices), np.array(col_indices)

@@ -1,30 +1,18 @@
 import unittest
-import time
-from sticzinger_ops import *
-import numpy as np
+
 import cv2
+import numpy as np
+from sticzinger_ops import *
+from sticzinger_utils import measuretime
 
 
-class measuretime:
-    def __init__(self, name: str):
-        self.name = name
-
-    def __enter__(self):
-        self.t = time.perf_counter()
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        self.seconds = time.perf_counter() - self.t
-        print(f"{self.name}: took {self.seconds:6.4f} [s]")
-
-
-def benchmark(name: str, method, steps=100, warmup=10):
+def benchmark(name: str, method, steps=500, warmup=10):
     print()
-    with measuretime(f"{name} warmup"):
+    with measuretime(f"{name} warmup", num_steps=steps):
         for _ in range(warmup):
             method()
 
-    with measuretime(f"{name} calls "):
+    with measuretime(f"{name} calls ", num_steps=steps):
         for _ in range(steps):
             method()
 
@@ -67,6 +55,97 @@ class TestConversion(unittest.TestCase):
 
         py_outputs = py_postprocess(data, kp1, kp2)
         py_outputs
+
+
+
+    def test_run_blas_dot(self):
+
+        A = np.random.randn(1005, 128).astype(np.float32)
+        B = np.random.randn(1000, 128).astype(np.float32)
+        C = np.random.randn(1005, 1000).astype(np.float32)
+
+        euclidean_dist_matrix(A, B, C)
+
+        error = np.abs(distance_matrix(A, B) - C).max()
+        print(error)
+
+        blas_call2 = lambda: euclidean_dist_matrix(A, B, C)
+        np_call = lambda : distance_matrix(A, B)
+
+        print()
+        # benchmark("blas1", blas_call)
+        benchmark("blas2", blas_call2)
+        benchmark("np", np_call)
+        print()
+
+    def test_mean_square_cols(self):
+
+        C = np.random.randn(1005, 1000).astype(np.float32)
+
+        row_values = np.zeros([C.shape[0]], dtype=np.float32)
+        mean_square_cols(C, row_values)
+        error = row_values - np.mean(C**2, 1)
+        print("error:", np.max(error))
+
+        blas = lambda: mean_square_cols(C, row_values)
+        np_call = lambda : np.mean(C**2, 1)
+
+        print()
+        # benchmark("blas1", blas_call)
+        benchmark("blas", blas)
+        benchmark("np", np_call)
+        print()
+
+    def test_blas_match(self):
+
+        A = np.random.randn(1000, 128).astype(np.float32)
+        B = np.random.randn(900, 128).astype(np.float32)
+        C = np.random.randn(1000, 900).astype(np.float32)
+
+        euclidean_dist_matrix(A, B, C)
+        row_indices = np.zeros([A.shape[0]], dtype=np.int32)
+        col_indices = np.zeros([B.shape[0]], dtype=np.int32)
+        argmin_match(C, row_indices, col_indices)
+
+        dist = distance_matrix(A, B)
+
+        print(np.abs( np.argmin(dist, 1) - row_indices).max())
+        print(np.abs( np.argmin(dist, 0) - col_indices).max())
+
+    def test_bf_cross_check_matcher(self):
+
+        A = np.random.randint(0, 255, size=(1000, 128)).astype(np.float32)
+        B = np.random.randint(0, 255, size=(1005, 128)).astype(np.float32)
+
+        row_indices, col_indices = bf_cross_check_matcher(A, B)
+
+        np_row_indices, np_col_indices = numpy_match(A, B)
+
+        print(np.abs(np_row_indices - row_indices).max())
+        print(np.abs(np_col_indices - col_indices).max())
+
+        blas_call2 = lambda: bf_cross_check_matcher(A, B)
+        np_call = lambda : numpy_match(A, B)
+
+        print()
+        # benchmark("blas1", blas_call)
+        benchmark("blas2", blas_call2)
+        benchmark("np", np_call)
+        print()
+
+
+def distance_matrix(X, Y):
+    sqnorm1 = np.sum(np.square(X), 1, keepdims=True)
+    sqnorm2 = np.sum(np.square(Y), 1, keepdims=True)
+    innerprod = np.dot(X, Y.T)
+    return sqnorm1 + np.transpose(sqnorm2) - 2.0 * innerprod
+
+
+def numpy_match(X, Y):
+    D = distance_matrix(X, Y)
+    row_indices = np.argmin(D, 1)
+    col_indices = np.argmin(D, 0)
+    return row_indices, col_indices
 
 
 def create_kp(x, y):

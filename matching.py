@@ -2,6 +2,50 @@ import numpy as np
 import cv2
 
 
+
+class SVD:
+    vh_proj = None
+    des_id = None
+    t = 64
+
+    @classmethod
+    def project(cls, des1, des2):
+        if id(des1) != cls.des_id or cls.vh_proj is None:
+            print("Computing SVD")
+            u, s, vh = np.linalg.svd(des1, full_matrices=False)
+            cls.des_id = id(des1)
+            cls.vh_proj = vh[:cls.t, :].T
+
+        des1 = des1 @ cls.vh_proj
+        des2 = des2 @ cls.vh_proj
+        return des1, des2
+
+
+class CythonBFMatcher:
+
+    def __call__(self, X, Y):
+        from sticzinger_ops import bf_cross_check_matcher
+
+        row_matches, col_matches = bf_cross_check_matcher(X, Y)
+
+        num_rows = row_matches.shape[0]
+        inverse_row_indices = col_matches[row_matches]
+        row_indices = np.arange(0, num_rows, dtype=row_matches.dtype)
+
+        cross_checked = row_indices == inverse_row_indices
+        rows = row_indices[cross_checked]
+        cols = row_matches[cross_checked]
+
+        indices = np.transpose(np.stack([rows, cols]))
+
+        matches = [
+            cv2.DMatch(_imgIdx=0, _queryIdx=q, _trainIdx=t, _distance=0)
+            for q, t in indices
+        ]
+
+        return matches
+
+
 def match_images(
     kp1,
     des1: np.ndarray,
@@ -23,39 +67,48 @@ def match_images(
         # this is possible since cv can return None
         return None, []
 
-    if matcher_type == "brute_force":
-        K = 1 if bf_matcher_cross_check else 2
-        # TODO refactor me!
-        if bf_matcher_norm == "NORM_L2":
-            bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=bf_matcher_cross_check)
-        elif bf_matcher_norm == "NORM_L1":
-            bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=bf_matcher_cross_check)
-        elif bf_matcher_norm == "NORM_HAMMING":
-            bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=bf_matcher_cross_check)
+    # des1, des2 = SVD.project(des1, des2)
+
+    if matcher_type == "cython_brute_force":
+        matcher = CythonBFMatcher()
+        if des1.dtype != np.float32:
+            des1 = des1.astype(np.float32)
+            des2 = des2.astype(np.float32)
+        good = matcher(des1, des2)
+    else:
+        if matcher_type == "brute_force":
+            K = 1 if bf_matcher_cross_check else 2
+            # TODO refactor me!
+            if bf_matcher_norm == "NORM_L2":
+                bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=bf_matcher_cross_check)
+            elif bf_matcher_norm == "NORM_L1":
+                bf = cv2.BFMatcher(cv2.NORM_L1, crossCheck=bf_matcher_cross_check)
+            elif bf_matcher_norm == "NORM_HAMMING":
+                bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=bf_matcher_cross_check)
+            else:
+                raise NotImplementedError(f"bf_matcher_norm={bf_matcher_norm}")
         else:
-            raise NotImplementedError(f"bf_matcher_norm={bf_matcher_norm}")
-    else:
 
-        K = 2
-        index_params = dict(algorithm=flann_index, trees=flann_trees)
-        search_params = dict(checks=flann_checks)
-        bf = cv2.FlannBasedMatcher(index_params, search_params)
+            K = 2
+            index_params = dict(algorithm=flann_index, trees=flann_trees)
+            search_params = dict(checks=flann_checks)
+            bf = cv2.FlannBasedMatcher(index_params, search_params)
 
-        des1 = des1.astype(np.float32)
-        des2 = des2.astype(np.float32)
+            des1 = des1.astype(np.float32)
+            des2 = des2.astype(np.float32)
 
-    if des1.shape[0] == 0 or des2.shape[0] == 0:
-        return None, []
+        if des1.shape[0] == 0 or des2.shape[0] == 0:
+            return None, []
 
-    matches = bf.knnMatch(des1, des2, k=K)
+        matches = bf.knnMatch(des1, des2, k=K)
 
-    if K == 1:
-        good = [m[0] for m in matches if len(m) == 1]
-    else:
-        good = []
-        for m, n in matches:
-            if m.distance < lowe * n.distance:
-                good.append(m)
+        if K == 1:
+            good = [m[0] for m in matches if len(m) == 1]
+        else:
+            good = []
+            for m, n in matches:
+                if m.distance < lowe * n.distance:
+                    good.append(m)
 
     if len(good) < min_matches:
         return None, []
@@ -68,9 +121,9 @@ def match_images(
         H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, ransack_threshold)
         matchesMask = mask.ravel().tolist()
 
-        matches = [p for p, m in zip(good, matchesMask) if m == 1]
+        good = [p for p, m in zip(good, matchesMask) if m == 1]
 
-    return H, matches
+    return H, good
 
 
 def select_matching_points(kp1, kp2, matches):

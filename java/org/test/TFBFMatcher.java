@@ -17,7 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 
-public class TestClass {
+public class TFBFMatcher {
     public Interpreter interpreter;
     public TensorBuffer outputBufferTensor;
     public TensorBuffer inputX;

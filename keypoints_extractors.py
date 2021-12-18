@@ -25,7 +25,7 @@ class FASTSIFT(CVExtractor):
             nonmaxSuppression=True,
             type=cv2.FAST_FEATURE_DETECTOR_TYPE_9_16,
         )
-        self.fe = cv2.SIFT_create(nfeatures=1024)
+        self.fe = cv2.SIFT_create(nfeatures=max_features)
         self.max_features = max_features
 
     def extract(self, image, mask: Optional[np.ndarray] = None):

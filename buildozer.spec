@@ -13,7 +13,7 @@ package.domain = org.test
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,kv,jpg,ttf,tflite
+source.include_exts = py,kv,jpg,ttf
 
 # (list) List of inclusions using pattern matching
 source.include_patterns = assets/*
@@ -36,12 +36,14 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = ipdb,python3,kivy==2.0.0,opencv_extras==4.5.1,my-opencv,numpy,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow,sticzinger_ops
+requirements = python3,setuptools,kivy==2.0.0,numpy,sticzinger_ops,opencv,kivymd==0.104.2,sdl2_ttf==2.0.15,pillow,cl_stub
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
 # requirements.source.kivy = ../../kivy
 requirements.source.sticzinger_ops = ./libs/sticzinger_ops
+requirements.source.cl_stub = ./libs/cl_stub
+#requirements.source.py_cl_stub = ./libs/py_cl_stub
 
 # (list) Garden requirements
 #garden_requirements =
@@ -150,7 +152,9 @@ android.permissions = CAMERA, WRITE_EXTERNAL_STORAGE
 # (list) List of Java files to add to the android project (can be java or a
 # directory containing the files)
 # https://stackoverflow.com/questions/65493632/java-classes-for-pyjnius
-android.add_src = java/
+# TFLITE >> NOTE Add misgging android.gradle_dependencies when using this JAVA code
+# Rememger to remove code from .buildozer/android/platform/build-armeabi-v7a/dists/Sticzinger__armeabi-v7a/src/main/java/org
+# android.add_src = java/
 
 # (list) Android AAR archives to add (currently works only with sdl2_gradle
 # bootstrap)
@@ -158,7 +162,8 @@ android.add_src = java/
 
 # (list) Gradle dependencies to add (currently works only with sdl2_gradle
 # bootstrap)
-android.gradle_dependencies = org.tensorflow:tensorflow-lite-gpu:2.7.0, org.tensorflow:tensorflow-lite-support:0.3.1, org.tensorflow:tensorflow-lite-select-tf-ops:2.6.0
+# TFLITE >> DONT USE it unless 'arm64-v8a' arch is used
+# android.gradle_dependencies = org.tensorflow:tensorflow-lite-gpu:2.7.0, org.tensorflow:tensorflow-lite-support:0.3.1, org.tensorflow:tensorflow-lite-select-tf-ops:2.6.0
 
 # (list) add java compile options
 # this can for example be necessary when importing certain java libraries using the 'android.gradle_dependencies' option
@@ -222,6 +227,7 @@ android.logcat_filters = *:S python:D
 #android.copy_libs = 1
 
 # (str) The Android arch to build for, choices: armeabi-v7a, arm64-v8a, x86, x86_64
+# TFLITE >> requires arm64-v8a
 android.arch = arm64-v8a
 
 # (int) overrides automatic versionCode computation (used in build.gradle)
