@@ -1,3 +1,5 @@
+# distutils: sources = fast_ops.c
+
 import numpy as np
 cimport numpy as np
 import cv2
@@ -101,15 +103,51 @@ cdef extern from 'cblas.h':
                                  float  alpha, float  *A, int lda, float  *B, int ldb,
                                  float  beta, float  *C, int ldc) nogil
 
-
+    void simple_sgemm "sgemm"(CBLAS_LAYOUT Order, CBLAS_TRANSPOSE TransA,
+                             CBLAS_TRANSPOSE TransB, int M, int N, int K,
+                             float  alpha, float  *A, int lda, float  *B, int ldb,
+                             float  beta, float  *C, int ldc) nogil
 
 
 cdef extern from "fast_ops.h":
-    void sum_square_cols(float* X, float *y, int num_rows, int num_cols)
-    void sum_row_and_col_vectors(float * row, float *col, float* X, int num_rows, int num_cols)
-    void argmin_row(float * X, int *y, int num_rows, int num_cols)
-    void argmin_col(float * X, int *y, int num_rows, int num_cols)
+    void sum_square_cols(float* X, float *y, int num_rows, int num_cols) nogil
+    void sum_row_and_col_vectors(float * row, float *col, float* X, int num_rows, int num_cols) nogil
+    void sum_row_and_col_vectors_v2(float * row, float *col, float* X, int num_rows, int num_cols) nogil
+    void argmin_row(float * X, int *y, int num_rows, int num_cols) nogil
+    void argmin_col(float * X, int *y, int num_rows, int num_cols) nogil
     float vector_sq_mean(float *X, int n) nogil
+    void fast_cross_check_match(int *irow, float *vrow, float *vcol, float * X, int num_rows, int num_cols) nogil
+
+
+cdef extern  from "ulmblas.h":
+    void dgemm_nn(int            m,
+                  int            n,
+                  int            k,
+                  double         alpha,
+                  const double *A,
+                  int            incRowA,
+                  int            incColA,
+                  const double *B,
+                  int            incRowB,
+                  int            incColB,
+                  double         beta,
+                  double *C,
+                  int            incRowC,
+                  int            incColC)
+
+
+cpdef void ulm_dgemm(double alpha, double[:, ::1] A, double[:, ::1] B, double beta, double[:, ::1] C):
+
+    """
+     C = α A B^T + β C
+    """
+
+    cdef double* A_ptr = &A[0, 0]
+    cdef double* B_ptr = &B[0, 0]
+    cdef double* C_ptr = &C[0, 0]
+
+    dgemm_nn(C.shape[0], C.shape[1], A.shape[1], alpha, A_ptr, A.shape[1], 1, B_ptr,
+               B.shape[1], 1, beta, C_ptr, C.shape[1], 1)
 
 
 cpdef void sgemm5v3(float alpha, float[:, ::1] A, float[:, ::1] B,
@@ -128,6 +166,12 @@ cpdef void sgemm5v3(float alpha, float[:, ::1] A, float[:, ::1] B,
                C.shape[0], C.shape[1],
                A.shape[1], alpha, A_ptr, A.shape[1], B_ptr,
                B.shape[1], beta, C_ptr, C.shape[1])
+
+    # simple_sgemm(CblasRowMajor,CblasNoTrans,CblasTrans,
+    #            C.shape[0], C.shape[1],
+    #            A.shape[1], alpha, A_ptr, A.shape[1], B_ptr,
+    #            B.shape[1], beta, C_ptr, C.shape[1])
+
 
 
 @cython.boundscheck(False)
@@ -166,9 +210,6 @@ cpdef void argmin_match(float[:, ::1] X, int[::1] row_indices, int[::1] col_indi
     cdef:
         int num_rows = row_indices.shape[0]
         int num_cols = col_indices.shape[0]
-
-
-    # argmin_row_col(X_ptr, &row_indices[0], &col_indices[0], num_rows, num_cols)
 
     argmin_col(X_ptr, &row_indices[0], num_rows, num_cols)
     argmin_row(X_ptr, &col_indices[0], num_rows, num_cols)
@@ -209,8 +250,90 @@ cpdef bf_cross_check_matcher(float[:, ::1] A, float[:, ::1] B):
 
     cdef float[:,::1] C = np.zeros((num_rows, num_cols), dtype = np.float32)
     cdef int[::1] row_indices = np.zeros((num_rows,), dtype = np.int32)
-    cdef int[::1] col_indices = np.zeros((num_cols,), dtype = np.int32)
 
     euclidean_dist_matrix(A, B, C)
-    argmin_match(C, row_indices, col_indices)
-    return np.array(row_indices), np.array(col_indices)
+
+    cdef float* C_ptr = &C[0, 0]
+
+    cdef float[::1] row_values = np.zeros((num_rows,), dtype = np.float32)
+    cdef float[::1] col_values = np.zeros((num_cols,), dtype = np.float32)
+
+    fast_cross_check_match(
+        &row_indices[0], &row_values[0], &col_values[0],
+        C_ptr, num_rows, num_cols
+    )
+
+    row_index = np.arange(0, A.shape[0])
+    cross_checked = row_values == np.array(col_values)[row_indices]
+    rows = row_index[cross_checked]
+    cols = np.array(row_indices)[cross_checked]
+    distances = np.array(row_values)[cross_checked]
+    indices = np.transpose(np.stack([rows, cols]))
+
+    return indices, distances
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef void euclidean_dist_matrix_v2(float[:, ::1] A, float[:, ::1] B, float[:, ::1] C):
+
+
+    cdef float* A_ptr = &A[0, 0]
+    cdef float* B_ptr = &B[0, 0]
+    cdef float* C_ptr = &C[0, 0]
+
+    cdef int a_num_rows = A.shape[0]
+    cdef int a_num_cols = A.shape[1]
+    cdef int b_num_rows = B.shape[0]
+    cdef int b_num_cols = B.shape[1]
+
+    cdef float *a_sq = <float*> malloc(a_num_rows * sizeof(float))
+    cdef float *b_sq = <float*> malloc(b_num_rows * sizeof(float))
+
+    try:
+        sum_square_cols(A_ptr, a_sq, a_num_rows, a_num_cols)
+        sum_square_cols(B_ptr, b_sq, b_num_rows, b_num_cols)
+        sum_row_and_col_vectors_v2(a_sq, b_sq, C_ptr, a_num_rows, b_num_rows)
+        #sgemm5v3(-2, A, B, 1, C)
+
+    finally:
+        free(a_sq)
+        free(b_sq)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef bf_cross_check_matcher_v2(
+        np.ndarray[Float32_t, ndim=2] A, np.ndarray[Float32_t, ndim=2] B):
+
+    cdef:
+        int num_rows = A.shape[0]
+        int num_cols = B.shape[0]
+
+    # cdef float[:,::1] C = np.zeros((num_rows, num_cols), dtype = np.float32)
+    cdef int[::1] row_indices = np.zeros((num_rows,), dtype = np.int32)
+
+    # this is slow on android !!!
+    cdef np.ndarray[Float32_t, ndim=2] C = np.ascontiguousarray(np.matmul(A, np.transpose(B)))
+    # cdef np.ndarray[Float32_t, ndim=2] C = np.zeros([num_rows, num_cols], np.float32)
+
+    euclidean_dist_matrix_v2(A, B, C)
+
+    cdef float* C_ptr = <float*> C.data #[0, 0]
+
+    cdef float[::1] row_values = np.zeros((num_rows,), dtype = np.float32)
+    cdef float[::1] col_values = np.zeros((num_cols,), dtype = np.float32)
+
+    fast_cross_check_match(
+        &row_indices[0], &row_values[0], &col_values[0],
+        C_ptr, num_rows, num_cols
+    )
+
+    row_index = np.arange(0, A.shape[0])
+    cross_checked = row_values == np.array(col_values)[row_indices]
+    rows = row_index[cross_checked]
+    cols = np.array(row_indices)[cross_checked]
+    distances = np.array(row_values)[cross_checked]
+    indices = np.transpose(np.stack([rows, cols]))
+
+    return indices, distances

@@ -36,15 +36,25 @@ setup(
         [
             Extension(
                 "sticzinger_ops",
-                ["sticzinger_ops.pyx", "fast_ops.c"],
+                [
+                    # "fast_ops.c",
+                    # "cblas_sgemm.c",
+                    "dgemm_nn.c",
+                    "sticzinger_ops.pyx"
+                ],
                 libraries=["blas"],
                 extra_compile_args=[
                     "-Ofast",
-                    "-mavx",
-                    "-ftree-vectorize",
                     "-march=native",
+                    "-msse3",
                     "-finline-functions",
                     "-fopt-info-vec-optimized",
+                    "-DLINUX",
+                    # "-O3",
+                    # "-msse3",
+                    # "-msse4.1",
+                    # "-mfpmath=sse",
+                    # "-fomit-frame-pointer"
                 ],
             )
         ],

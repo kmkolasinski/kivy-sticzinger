@@ -31,8 +31,19 @@ setup(
     install_requires=INSTALL_REQUIRES,
     setup_requires=SETUP_REQUIRES,
     include_dirs=[numpy.get_include()],
-    ext_modules=[Extension(
-        "sticzinger_ops", [str(fn) for fn in FILES]),
-    ],
+    ext_modules=[
+            Extension(
+                "sticzinger_ops",
+                ["fast_ops.c", "cblas_sgemm.c", "sticzinger_ops.pyx"],
+                # libraries=["blas"],
+                extra_compile_args=[
+                    "-Ofast",
+                    # "-march=native",
+                    # "-msse3",
+                    "-finline-functions",
+                    # "-fopt-info-vec-optimized",
+                ],
+            )
+        ],
     extras_require={"dev": [], "ci": []},
 )

@@ -1,11 +1,12 @@
 import numpy as np
 import cv2
-
+from sticzinger_ops import bf_cross_check_matcher_v2
 
 
 class SVD:
     vh_proj = None
     des_id = None
+    des1 = None
     t = 64
 
     @classmethod
@@ -15,34 +16,21 @@ class SVD:
             u, s, vh = np.linalg.svd(des1, full_matrices=False)
             cls.des_id = id(des1)
             cls.vh_proj = vh[:cls.t, :].T
+            cls.des1 = des1 @ cls.vh_proj
 
-        des1 = des1 @ cls.vh_proj
         des2 = des2 @ cls.vh_proj
-        return des1, des2
+        return cls.des1, des2
 
 
 class CythonBFMatcher:
 
     def __call__(self, X, Y):
-        from sticzinger_ops import bf_cross_check_matcher
 
-        row_matches, col_matches = bf_cross_check_matcher(X, Y)
-
-        num_rows = row_matches.shape[0]
-        inverse_row_indices = col_matches[row_matches]
-        row_indices = np.arange(0, num_rows, dtype=row_matches.dtype)
-
-        cross_checked = row_indices == inverse_row_indices
-        rows = row_indices[cross_checked]
-        cols = row_matches[cross_checked]
-
-        indices = np.transpose(np.stack([rows, cols]))
-
+        indices, distances = bf_cross_check_matcher_v2(X, Y)
         matches = [
             cv2.DMatch(_imgIdx=0, _queryIdx=q, _trainIdx=t, _distance=0)
             for q, t in indices
         ]
-
         return matches
 
 

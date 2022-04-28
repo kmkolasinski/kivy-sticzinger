@@ -56,7 +56,28 @@ class TestConversion(unittest.TestCase):
         py_outputs = py_postprocess(data, kp1, kp2)
         py_outputs
 
+    def test_ulm_dgemm(self):
 
+        A = np.random.randn(500, 500).astype(np.float64)
+        B = np.random.randn(500, 500).astype(np.float64)
+        C = np.random.randn(500, 500).astype(np.float64)
+        D = np.random.randn(500, 500).astype(np.float64)
+
+        ulm_dgemm(2.0, A, B, 0.0, C)
+
+        expected = 2 * np.matmul(A, B)
+
+        error = np.abs(expected - C).max()
+        print(error)
+
+        blas_call2 = lambda: ulm_dgemm(2.0, A, B, 0.0, C)
+        np_call = lambda : 2 * np.matmul(A, B) + 0.0 * D
+
+        print()
+        # benchmark("blas1", blas_call)
+        benchmark("blas2", blas_call2)
+        benchmark("np", np_call)
+        print()
 
     def test_run_blas_dot(self):
 
@@ -96,6 +117,24 @@ class TestConversion(unittest.TestCase):
         benchmark("np", np_call)
         print()
 
+    def test_argmin_col(self):
+
+        C = np.random.randn(1005, 1003).astype(np.float32)
+
+        row_indices = np.zeros([C.shape[0]], dtype=np.int32)
+        column_argmin(C, row_indices)
+        error = row_indices - np.argmin(C, 1)
+        print("error:", np.max(error))
+
+        blas = lambda: column_argmin(C, row_indices)
+        np_call = lambda : np.argmin(C, 1)
+
+        print()
+        # benchmark("blas1", blas_call)
+        benchmark("blas", blas)
+        benchmark("np", np_call)
+        print()
+
     def test_blas_match(self):
 
         A = np.random.randn(1000, 128).astype(np.float32)
@@ -117,12 +156,12 @@ class TestConversion(unittest.TestCase):
         A = np.random.randint(0, 255, size=(1000, 128)).astype(np.float32)
         B = np.random.randint(0, 255, size=(1005, 128)).astype(np.float32)
 
-        row_indices, col_indices = bf_cross_check_matcher(A, B)
+        matches, distances = bf_cross_check_matcher(A, B)
 
-        np_row_indices, np_col_indices = numpy_match(A, B)
+        np_matches, np_distances = numpy_match(A, B)
 
-        print(np.abs(np_row_indices - row_indices).max())
-        print(np.abs(np_col_indices - col_indices).max())
+        print(np.abs(matches - np_matches).max())
+        print(np.abs(distances - np_distances).max())
 
         blas_call2 = lambda: bf_cross_check_matcher(A, B)
         np_call = lambda : numpy_match(A, B)
@@ -143,9 +182,22 @@ def distance_matrix(X, Y):
 
 def numpy_match(X, Y):
     D = distance_matrix(X, Y)
-    row_indices = np.argmin(D, 1)
-    col_indices = np.argmin(D, 0)
-    return row_indices, col_indices
+
+    row_matches = np.argmin(D, 1)
+    col_matches = np.argmin(D, 0)
+
+    num_rows = row_matches.shape[0]
+
+    inverse_row_indices = col_matches[row_matches]
+    row_indices = np.arange(0, num_rows, dtype=row_matches.dtype)
+
+    cross_checked = row_indices == inverse_row_indices
+    rows = row_indices[cross_checked]
+    cols = row_matches[cross_checked]
+
+    indices = np.transpose(np.stack([rows, cols]))
+    distances = D[rows, cols]
+    return indices, distances
 
 
 def create_kp(x, y):
